@@ -1,7 +1,7 @@
 """
 数据清洗模块的路由定义
 """
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
 from typing import List
 import logging
@@ -16,6 +16,7 @@ from modules.data_cleaning.services.entity_config_service import EntityConfigSer
 from common.storage.file_service import FileService
 from api.dependencies.auth import get_user_id
 from common.database.dependencies import get_task_db, get_app_config_db
+from pydantic import BaseModel, Field
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,13 @@ router = APIRouter(
 # 初始化服务
 file_service = FileService()
 task_queue = TaskQueue("cleaning")
+
+class TaskCreateRequest(BaseModel):
+    """任务创建请求模型"""
+    file_url: str = Field(..., description="文件URL，通过文件上传接口获取")
+    entity_type: str = Field(..., description="实体类型")
+    search_enabled: bool = Field(True, description="是否启用搜索功能")
+    retrieval_enabled: bool = Field(True, description="是否启用检索功能")
 
 @router.get(
     "/entity-types",
@@ -54,14 +62,11 @@ async def list_entity_types(
     "/tasks",
     response_model=TaskResponse,
     summary="创建数据清洗任务",
-    description="上传文件并创建新的数据清洗任务，支持实体名称标准化、验证和清洗"
+    description="创建新的数据清洗任务，支持实体名称标准化、验证和清洗"
 )
 async def create_task(
+        request: TaskCreateRequest,
         response: Response,
-        file: UploadFile = File(..., description="待清洗的CSV文件"),
-        entity_type: str = Form(..., description="实体类型"),
-        search_enabled: bool = Form(True, description="是否启用搜索功能"),
-        retrieval_enabled: bool = Form(True, description="是否启用检索功能"),
         user_id: str = Depends(get_user_id),
         task_db=Depends(get_task_db),
         app_config_db=Depends(get_app_config_db)
@@ -70,24 +75,27 @@ async def create_task(
     try:
         # 验证实体类型是否支持
         config_service = EntityConfigService(app_config_db)
-        if not config_service.is_valid_entity_type(entity_type):
+        if not config_service.is_valid_entity_type(request.entity_type):
             raise HTTPException(
                 status_code=400,
-                detail=f"不支持的实体类型: {entity_type}"
+                detail=f"不支持的实体类型: {request.entity_type}"
             )
 
-        # 保存上传的文件
-        file_path = await file_service.save_upload_file(file)
-        logger.info(f"文件上传成功: {file_path}")
+        # 验证文件URL是否有效
+        if not file_service.file_exists(request.file_url):
+            raise HTTPException(
+                status_code=400,
+                detail="文件不存在或无法访问"
+            )
 
         # 创建任务记录
         task = CleaningTask(
             task_id=str(uuid.uuid4()),
             user_id=user_id,
-            entity_type=entity_type,
-            search_enabled='enabled' if search_enabled else 'disabled',
-            retrieval_enabled='enabled' if retrieval_enabled else 'disabled',
-            source_file_url=file_path
+            entity_type=request.entity_type,
+            search_enabled='enabled' if request.search_enabled else 'disabled',
+            retrieval_enabled='enabled' if request.retrieval_enabled else 'disabled',
+            source_file_url=request.file_url
         )
 
         task_db.add(task)
@@ -201,15 +209,15 @@ async def list_tasks(
 
 @router.get(
     "/tasks/{task_id}/download",
-    summary="下载清洗结果",
-    description="下载指定任务的数据清洗结果文件"
+    summary="获取清洗结果文件的下载链接",
+    description="获取指定任务的数据清洗结果文件的预签名下载URL"
 )
 async def download_result(
         task_id: str,
         user_id: str = Depends(get_user_id),
         db=Depends(get_task_db)
-) -> FileResponse:
-    """下载清洗结果"""
+):
+    """获取清洗结果文件的预签名下载URL"""
     task = db.query(CleaningTask).filter(
         CleaningTask.task_id == task_id,
         CleaningTask.user_id == user_id
@@ -221,8 +229,10 @@ async def download_result(
     if not task.result_file_url:
         raise HTTPException(status_code=400, detail="Result file not available")
 
-    return FileResponse(
-        task.result_file_url,
-        filename=f"cleaned_data_{task.task_id}.csv",
-        media_type='text/csv'
-    )
+    try:
+        # 生成预签名URL（1小时有效期）
+        presigned_url = file_service.get_presigned_url(task.result_file_url)
+        return {"download_url": presigned_url}
+    except Exception as e:
+        logger.error(f"生成下载URL失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="生成下载URL失败")

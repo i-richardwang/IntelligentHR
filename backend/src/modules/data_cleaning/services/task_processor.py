@@ -215,7 +215,7 @@ class TaskProcessor:
             with next(get_task_db()) as new_db:
                 current_task = new_db.query(CleaningTask).get(task.task_id)
                 if current_task and current_task.status != TaskStatus.CANCELLED:
-                    result_file_path = self.file_service.save_results_to_csv(
+                    result_file_path = await self.file_service.save_results_to_csv(
                         combined_results, task.task_id)
                     current_task.status = TaskStatus.COMPLETED
                     current_task.result_file_url = result_file_path
