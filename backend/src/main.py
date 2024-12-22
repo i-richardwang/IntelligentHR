@@ -6,11 +6,20 @@ from api.v1 import v1_router
 from modules.text_review.services import TaskProcessor as ReviewTaskProcessor
 from modules.text_classification.services import TaskProcessor as ClassificationTaskProcessor
 from modules.data_cleaning.services import TaskProcessor as CleaningTaskProcessor
+from modules.text_validity.services import TaskProcessor as ValidityTaskProcessor
+from modules.sentiment_analysis.services import TaskProcessor as SentimentTaskProcessor
+from modules.sensitive_detection.services import TaskProcessor as SensitiveTaskProcessor
 from common.utils.env_loader import load_env
 from common.database.init_db import init_database
 import asyncio
 import uvicorn
 import logging
+from langchain_core.globals import set_llm_cache
+from langchain_community.cache import SQLiteCache
+
+
+# 设置LLM缓存
+# set_llm_cache(SQLiteCache(database_path="./data/llm_cache/langchain.db"))
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +32,9 @@ load_env()
 review_processor = None
 classification_processor = None
 cleaning_processor = None
+validity_processor = None
+sentiment_processor = None
+sensitive_processor = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,6 +47,24 @@ async def lifespan(app: FastAPI):
         # 初始化数据库
         logger.info("正在初始化数据库...")
         init_database()
+
+        # 启动文本有效性检测任务处理器
+        logger.info("正在启动文本有效性检测任务处理器...")
+        global validity_processor
+        validity_processor = ValidityTaskProcessor()
+        asyncio.create_task(validity_processor.start_processing())
+
+        # 启动情感分析任务处理器
+        logger.info("正在启动情感分析任务处理器...")
+        global sentiment_processor
+        sentiment_processor = SentimentTaskProcessor()
+        asyncio.create_task(sentiment_processor.start_processing())
+
+        # 启动敏感信息检测任务处理器
+        logger.info("正在启动敏感信息检测任务处理器...")
+        global sensitive_processor
+        sensitive_processor = SensitiveTaskProcessor()
+        asyncio.create_task(sensitive_processor.start_processing())
 
         # 启动文本评估任务处理器
         logger.info("正在启动文本评估任务处理器...")
@@ -76,7 +106,7 @@ app = FastAPI(
 # 添加 CORS 配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
