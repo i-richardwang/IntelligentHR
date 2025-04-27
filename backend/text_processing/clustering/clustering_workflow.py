@@ -13,7 +13,7 @@ from utils.text_utils import (
     filter_invalid_text,
     dataframe_to_markdown_tables,
 )
-from backend_demo.text_processing.clustering.clustering_core import (
+from backend.text_processing.clustering.clustering_core import (
     Categories,
     ClassificationResult,
     INITIAL_CATEGORY_GENERATION_SYSTEM_MESSAGE,

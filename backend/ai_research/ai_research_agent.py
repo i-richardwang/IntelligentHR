@@ -1,4 +1,4 @@
-# backend_demo/ai_research/ai_research_agent.py
+# backend/ai_research/ai_research_agent.py
 
 import json
 import asyncio
@@ -10,22 +10,22 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI
 
-from backend_demo.ai_research.ai_research_config import Config
-from backend_demo.ai_research.research_prompts import (
+from backend.ai_research.ai_research_config import Config
+from backend.ai_research.research_prompts import (
     auto_agent_instructions,
     generate_search_queries_prompt,
     get_report_by_type,
     generate_report_introduction_prompt,
     generate_subtopics_prompt,
 )
-from backend_demo.ai_research.web_retriever import (
+from backend.ai_research.web_retriever import (
     get_retriever,
     get_default_retriever,
     scrape_urls,
     ContextCompressor,
 )
-from backend_demo.ai_research.research_enums import ReportType, ReportSource, Tone
-from backend_demo.ai_research.embedding_service import Memory
+from backend.ai_research.research_enums import ReportType, ReportSource, Tone
+from backend.ai_research.embedding_service import Memory
 from utils.llm_tools import init_language_model
 
 

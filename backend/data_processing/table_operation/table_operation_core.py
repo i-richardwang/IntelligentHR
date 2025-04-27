@@ -9,7 +9,7 @@ from langfuse.callback import CallbackHandler
 
 from langchain_core.tools import tool
 
-from backend_demo.data_processing.table_operation.table_operation_models import (
+from backend.data_processing.table_operation.table_operation_models import (
     AssistantResponse,
 )
 from utils.llm_tools import LanguageModelChain, init_language_model, CustomEmbeddings

@@ -21,7 +21,7 @@ from utils.vector_db_utils import (
     get_collection_stats,
     update_milvus_records,
 )
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
 
 st.query_params.role = st.session_state.role
 

@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from langchain_core.messages import AIMessage
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
-from backend_demo.sql_assistant.utils.format_utils import (
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.utils.format_utils import (
     format_table_structures,
     format_term_descriptions,
 )

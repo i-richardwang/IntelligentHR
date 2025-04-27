@@ -12,9 +12,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 # 将项目根目录添加到 sys.path
 sys.path.append(project_root)
 
-from backend_demo.ai_research.ai_researcher import AIResearcher
-from backend_demo.ai_research.research_enums import ReportType, Tone
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.ai_research.ai_researcher import AIResearcher
+from backend.ai_research.research_enums import ReportType, Tone
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
 
 st.query_params.role = st.session_state.role
 

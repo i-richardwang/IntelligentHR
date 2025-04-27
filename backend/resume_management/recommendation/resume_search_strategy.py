@@ -4,7 +4,7 @@ import os
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from langfuse.callback import CallbackHandler
-from backend_demo.resume_management.recommendation.recommendation_state import (
+from backend.resume_management.recommendation.recommendation_state import (
     ResumeSearchStrategy,
     CollectionSearchStrategy,
 )

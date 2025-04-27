@@ -13,22 +13,22 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage
 from langfuse.callback import CallbackHandler
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
-from backend_demo.sql_assistant.nodes.intent_analysis_node import intent_analysis_node
-from backend_demo.sql_assistant.nodes.keyword_extraction_node import keyword_extraction_node
-from backend_demo.sql_assistant.nodes.term_mapping_node import domain_term_mapping_node
-from backend_demo.sql_assistant.nodes.query_rewrite_node import query_rewrite_node
-from backend_demo.sql_assistant.nodes.data_source_node import data_source_identification_node
-from backend_demo.sql_assistant.nodes.table_structure_node import (
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.nodes.intent_analysis_node import intent_analysis_node
+from backend.sql_assistant.nodes.keyword_extraction_node import keyword_extraction_node
+from backend.sql_assistant.nodes.term_mapping_node import domain_term_mapping_node
+from backend.sql_assistant.nodes.query_rewrite_node import query_rewrite_node
+from backend.sql_assistant.nodes.data_source_node import data_source_identification_node
+from backend.sql_assistant.nodes.table_structure_node import (
     table_structure_analysis_node,
 )
-from backend_demo.sql_assistant.nodes.sql_generation_node import sql_generation_node
-from backend_demo.sql_assistant.nodes.permission_control_node import permission_control_node
-from backend_demo.sql_assistant.nodes.sql_execution_node import sql_execution_node
-from backend_demo.sql_assistant.nodes.error_analysis_node import error_analysis_node
-from backend_demo.sql_assistant.nodes.result_generation_node import result_generation_node
-from backend_demo.sql_assistant.nodes.feasibility_check_node import feasibility_check_node
-from backend_demo.sql_assistant.routes.node_routes import (
+from backend.sql_assistant.nodes.sql_generation_node import sql_generation_node
+from backend.sql_assistant.nodes.permission_control_node import permission_control_node
+from backend.sql_assistant.nodes.sql_execution_node import sql_execution_node
+from backend.sql_assistant.nodes.error_analysis_node import error_analysis_node
+from backend.sql_assistant.nodes.result_generation_node import result_generation_node
+from backend.sql_assistant.nodes.feasibility_check_node import feasibility_check_node
+from backend.sql_assistant.routes.node_routes import (
     route_after_intent,
     route_after_execution,
     route_after_error_analysis,

@@ -4,15 +4,15 @@ import numpy as np
 from datetime import datetime
 from typing import Dict, Any
 
-from backend_demo.data_processing.analysis.model_utils import (
+from backend.data_processing.analysis.model_utils import (
     train_model,
     save_model,
     add_model_record,
     evaluate_model,
     get_feature_importance,
 )
-from backend_demo.data_processing.analysis.shap_analysis import calculate_shap_values
-from backend_demo.data_processing.analysis.visualization import (
+from backend.data_processing.analysis.shap_analysis import calculate_shap_values
+from backend.data_processing.analysis.visualization import (
     create_confusion_matrix_plot,
     create_residual_plot,
     create_feature_importance_plot,
@@ -20,8 +20,8 @@ from backend_demo.data_processing.analysis.visualization import (
     create_shap_importance_plot,
     create_shap_dependence_plot,
 )
-from backend_demo.data_processing.analysis.model_predictor import ModelPredictor
-from backend_demo.data_processing.analysis.ml_components import (
+from backend.data_processing.analysis.model_predictor import ModelPredictor
+from backend.data_processing.analysis.ml_components import (
     display_info_message,
     display_data_split_settings,
     display_random_forest_settings,
@@ -31,7 +31,7 @@ from backend_demo.data_processing.analysis.ml_components import (
     display_model_selection,
     display_preprocessing_settings,
 )
-from backend_demo.data_processing.analysis.ml_explanations import (
+from backend.data_processing.analysis.ml_explanations import (
     CONFUSION_MATRIX_EXPLANATION,
     CLASSIFICATION_REPORT_EXPLANATION,
     REGRESSION_METRICS_EXPLANATION,
@@ -714,7 +714,7 @@ def handle_training_mode() -> None:
 
 def handle_prediction_mode() -> None:
     """处理预测模式"""
-    from backend_demo.data_processing.analysis.model_prediction import (
+    from backend.data_processing.analysis.model_prediction import (
         display_saved_model_selection,
         display_prediction_execution,
         display_prediction_results,

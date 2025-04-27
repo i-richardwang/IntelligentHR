@@ -8,7 +8,7 @@ project_root = os.path.abspath(
 )
 sys.path.append(project_root)
 
-from backend_demo.data_processing.table_operation.table_operations import *
+from backend.data_processing.table_operation.table_operations import *
 
 
 def get_tools_description(tools):

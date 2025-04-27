@@ -3,11 +3,11 @@ import pandas as pd
 import numpy as np
 from typing import List, Tuple
 
-from backend_demo.data_processing.analysis.model_predictor import (
+from backend.data_processing.analysis.model_predictor import (
     ModelPredictor,
     list_available_models,
 )
-from backend_demo.data_processing.analysis.visualization import (
+from backend.data_processing.analysis.visualization import (
     create_prediction_distribution_plot,
 )
 

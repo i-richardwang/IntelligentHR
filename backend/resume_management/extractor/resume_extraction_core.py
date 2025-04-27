@@ -15,12 +15,12 @@ from typing import Dict, Any
 from langfuse.callback import CallbackHandler
 
 from utils.llm_tools import LanguageModelChain, init_language_model
-from backend_demo.resume_management.extractor.resume_data_models import (
+from backend.resume_management.extractor.resume_data_models import (
     ResumePersonalEducation,
     ResumeWorkProject,
     Summary,
 )
-from backend_demo.resume_management.extractor.resume_extraction_prompts import (
+from backend.resume_management.extractor.resume_extraction_prompts import (
     PERSONAL_EDUCATION_SYSTEM_MESSAGE,
     PERSONAL_EDUCATION_HUMAN_MESSAGE,
     WORK_PROJECT_SYSTEM_MESSAGE,
@@ -28,10 +28,10 @@ from backend_demo.resume_management.extractor.resume_extraction_prompts import (
     RESUME_SUMMARY_SYSTEM_MESSAGE,
     RESUME_SUMMARY_HUMAN_MESSAGE,
 )
-from backend_demo.resume_management.storage.resume_vector_storage import (
+from backend.resume_management.storage.resume_vector_storage import (
     store_resume_in_milvus,
 )
-from backend_demo.resume_management.storage.resume_sql_storage import (
+from backend.resume_management.storage.resume_sql_storage import (
     init_all_tables,
     store_full_resume,
 )

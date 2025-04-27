@@ -9,8 +9,8 @@ from datetime import datetime
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.data_processing.analysis.ml_explanations import (
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.data_processing.analysis.ml_explanations import (
     ML_TOOL_INFO,
     CONFUSION_MATRIX_EXPLANATION,
     CLASSIFICATION_REPORT_EXPLANATION,
@@ -21,14 +21,14 @@ from backend_demo.data_processing.analysis.ml_explanations import (
     LINEAR_REGRESSION_FEATURE_IMPORTANCE_EXPLANATION,
     XGBOOST_LABEL_ENCODING_EXPLANATION,
 )
-from backend_demo.data_processing.analysis.model_utils import (
+from backend.data_processing.analysis.model_utils import (
     initialize_session_state,
 )
-from backend_demo.data_processing.analysis.ml_components import (
+from backend.data_processing.analysis.ml_components import (
     display_info_message,
     display_model_selection,
 )
-from backend_demo.data_processing.analysis.model_training import (
+from backend.data_processing.analysis.model_training import (
     display_data_upload_and_preview,
     display_column_selection,
     display_model_training_and_advanced_settings,
@@ -36,7 +36,7 @@ from backend_demo.data_processing.analysis.model_training import (
     display_results,
     display_model_interpretation,
 )
-from backend_demo.data_processing.analysis.model_prediction import (
+from backend.data_processing.analysis.model_prediction import (
     display_saved_model_selection,
     display_prediction_execution,
     display_prediction_results,

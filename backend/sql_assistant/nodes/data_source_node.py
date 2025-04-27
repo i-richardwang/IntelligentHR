@@ -7,7 +7,7 @@ import os
 import logging
 from typing import List, Dict, Any
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
 from utils.vector_db_utils import (
     connect_to_milvus,
     initialize_vector_store,

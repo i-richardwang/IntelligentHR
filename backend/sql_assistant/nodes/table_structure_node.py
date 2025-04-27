@@ -8,7 +8,7 @@ import logging
 from typing import Dict, List
 from sqlalchemy import create_engine, MetaData, inspect, Engine
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
 
 logger = logging.getLogger(__name__)
 

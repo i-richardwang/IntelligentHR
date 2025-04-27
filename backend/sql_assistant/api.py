@@ -12,8 +12,8 @@ from pydantic import BaseModel
 from functools import partial
 
 from langgraph.checkpoint.memory import MemorySaver
-from backend_demo.sql_assistant.graph.assistant_graph import run_sql_assistant
-from backend_demo.sql_assistant.utils.user_mapper import UserMapper
+from backend.sql_assistant.graph.assistant_graph import run_sql_assistant
+from backend.sql_assistant.utils.user_mapper import UserMapper
 from langchain_core.globals import set_llm_cache
 from langchain_community.cache import SQLiteCache
 

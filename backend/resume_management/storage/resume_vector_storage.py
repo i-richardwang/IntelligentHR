@@ -20,7 +20,7 @@ from utils.vector_db_utils import (
     update_milvus_records,
     search_in_milvus,
 )
-from backend_demo.resume_management.storage.resume_db_operations import get_minio_link
+from backend.resume_management.storage.resume_db_operations import get_minio_link
 import logging
 
 logger = logging.getLogger(__name__)

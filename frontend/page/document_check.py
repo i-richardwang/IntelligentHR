@@ -9,8 +9,8 @@ import pandas as pd
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.document_check.document_check_core import process_document
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.document_check.document_check_core import process_document
 import unstructured_client
 from unstructured_client.models import operations, shared
 

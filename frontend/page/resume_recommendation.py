@@ -12,10 +12,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 # 将项目根目录添加到 sys.path
 sys.path.append(project_root)
 
-from backend_demo.resume_management.recommendation.resume_recommender import (
+from backend.resume_management.recommendation.resume_recommender import (
     ResumeRecommender,
 )
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
 
 # 初始化会话状态
 if "recommender" not in st.session_state:

@@ -10,26 +10,26 @@ import asyncio
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.resume_management.storage.resume_storage_handler import (
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.resume_management.storage.resume_storage_handler import (
     save_pdf_to_minio,
     calculate_file_hash,
     extract_text_from_url,
     calculate_url_hash,
     extract_text_from_pdf,
 )
-from backend_demo.resume_management.storage.resume_db_operations import (
+from backend.resume_management.storage.resume_db_operations import (
     store_resume_record,
     get_resume_by_hash,
     update_resume_version,
     get_minio_path_by_id,
 )
-from backend_demo.resume_management.storage.resume_vector_storage import (
+from backend.resume_management.storage.resume_vector_storage import (
     store_raw_resume_text_in_milvus,
     search_similar_resumes,
     delete_resume_from_milvus,
 )
-from backend_demo.resume_management.storage.resume_comparison import compare_resumes
+from backend.resume_management.storage.resume_comparison import compare_resumes
 import logging
 
 # 配置日志

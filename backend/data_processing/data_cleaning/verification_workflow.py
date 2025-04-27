@@ -7,13 +7,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from backend_demo.data_processing.data_cleaning.search_tools import SearchTools
-from backend_demo.data_processing.data_cleaning.verification_models import (
+from backend.data_processing.data_cleaning.search_tools import SearchTools
+from backend.data_processing.data_cleaning.verification_models import (
     input_validator,
     search_analysis,
     name_verifier,
 )
-from backend_demo.data_processing.data_cleaning.data_processor import (
+from backend.data_processing.data_cleaning.data_processor import (
     initialize_vector_store,
     get_entity_retriever,
 )

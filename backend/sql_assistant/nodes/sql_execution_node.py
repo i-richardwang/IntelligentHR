@@ -9,7 +9,7 @@ from typing import Dict, Any
 import pandas as pd
 from sqlalchemy import create_engine, text, Engine
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ import optuna
 import logging
 from typing import List, Dict, Any, Tuple
 
-from backend_demo.data_processing.analysis.model_utils import (
+from backend.data_processing.analysis.model_utils import (
     BaseModel,
     create_preprocessor,
     evaluate_model,

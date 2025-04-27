@@ -17,7 +17,7 @@ from datetime import datetime
 import os
 from abc import ABC, abstractmethod
 
-from backend_demo.data_processing.analysis.model_predictor import ModelPredictor
+from backend.data_processing.analysis.model_predictor import ModelPredictor
 
 
 class BaseModel(ABC):
@@ -277,10 +277,10 @@ def train_model(
 
 def get_model_class(model_type: str):
     """根据模型类型获取对应的模型类"""
-    from backend_demo.data_processing.analysis.random_forest_trainer import RandomForestModel
-    from backend_demo.data_processing.analysis.decision_tree_trainer import DecisionTreeModel
-    from backend_demo.data_processing.analysis.xgboost_trainer import XGBoostModel
-    from backend_demo.data_processing.analysis.linear_regression_trainer import (
+    from backend.data_processing.analysis.random_forest_trainer import RandomForestModel
+    from backend.data_processing.analysis.decision_tree_trainer import DecisionTreeModel
+    from backend.data_processing.analysis.xgboost_trainer import XGBoostModel
+    from backend.data_processing.analysis.linear_regression_trainer import (
         LinearRegressionModel,
     )
 

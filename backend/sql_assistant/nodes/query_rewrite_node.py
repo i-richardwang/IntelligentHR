@@ -6,8 +6,8 @@
 from pydantic import BaseModel, Field
 import logging
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
-from backend_demo.sql_assistant.utils.format_utils import (
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.utils.format_utils import (
     format_conversation_history,
     format_term_descriptions
 )

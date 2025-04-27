@@ -13,12 +13,12 @@ import aiohttp
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.data_processing.data_cleaning.data_processor import (
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.data_processing.data_cleaning.data_processor import (
     initialize_vector_store,
     get_entity_retriever,
 )
-from backend_demo.data_processing.data_cleaning.verification_workflow import (
+from backend.data_processing.data_cleaning.verification_workflow import (
     EntityVerificationWorkflow,
     ProcessingStatus,
 )
@@ -226,7 +226,7 @@ def display_workflow():
             col1, col2 = st.columns([1, 1])
 
             with col1:
-                image = Image.open("frontend_demo/assets/data_cleaning_workflow.png")
+                image = Image.open("frontend/assets/data_cleaning_workflow.png")
                 st.image(image, caption="自动化数据清洗流程图", use_container_width=True)
 
             with col2:

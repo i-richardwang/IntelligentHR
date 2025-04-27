@@ -14,10 +14,10 @@ from PIL import Image
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from backend_demo.data_processing.table_operation.table_operation_workflow import (
+from backend.data_processing.table_operation.table_operation_workflow import (
     DataFrameWorkflow,
 )
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
 
 st.query_params.role = st.session_state.role
 
@@ -90,7 +90,7 @@ def display_workflow():
             col1, col2 = st.columns([1, 1])
 
             with col1:
-                image = Image.open("frontend_demo/assets/table_operation_workflow.png")
+                image = Image.open("frontend/assets/table_operation_workflow.png")
                 st.image(image, caption="智能数据整理流程图", use_container_width=True)
 
             with col2:

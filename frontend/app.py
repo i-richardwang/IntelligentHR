@@ -187,8 +187,8 @@ admin_pages = [vector_db_management]
 
 
 # st.logo(
-#     "frontend_demo/assets/horizontal_blue.png",
-#     icon_image="frontend_demo/assets/icon_blue.png",
+#     "frontend/assets/horizontal_blue.png",
+#     icon_image="frontend/assets/icon_blue.png",
 # )
 
 # 功能分类

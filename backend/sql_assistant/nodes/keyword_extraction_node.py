@@ -7,8 +7,8 @@ from pydantic import BaseModel, Field
 from typing import List
 import logging
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
-from backend_demo.sql_assistant.utils.format_utils import format_conversation_history
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.utils.format_utils import format_conversation_history
 from utils.llm_tools import init_language_model, LanguageModelChain
 
 logger = logging.getLogger(__name__)

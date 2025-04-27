@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import Dict, List
 from utils.dataset_utils import load_df_from_csv, save_df_to_csv
-from backend_demo.resume_management.storage.resume_sql_storage import get_full_resume
+from backend.resume_management.storage.resume_sql_storage import get_full_resume
 import asyncio
 
 

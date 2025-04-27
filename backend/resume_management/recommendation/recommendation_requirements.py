@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional
 from pydantic import BaseModel
-from backend_demo.resume_management.recommendation.recommendation_state import (
+from backend.resume_management.recommendation.recommendation_state import (
     QueryRefinement,
 )
 from utils.llm_tools import LanguageModelChain, init_language_model

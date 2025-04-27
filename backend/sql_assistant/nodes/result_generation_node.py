@@ -7,8 +7,8 @@ import logging
 from pydantic import BaseModel, Field
 from langchain_core.messages import AIMessage
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
-from backend_demo.sql_assistant.utils.format_utils import (
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.utils.format_utils import (
     format_results_preview,
     format_term_descriptions,
     format_full_results

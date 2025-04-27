@@ -1,18 +1,18 @@
-# backend_demo/ai_researcher/ai_researcher.py
+# backend/ai_researcher/ai_researcher.py
 
 import asyncio
 from typing import List, Dict, Any, Optional
 
-from backend_demo.ai_research.ai_research_config import Config
-from backend_demo.ai_research.research_enums import ReportType, ReportSource, Tone
-from backend_demo.ai_research.web_retriever import (
+from backend.ai_research.ai_research_config import Config
+from backend.ai_research.research_enums import ReportType, ReportSource, Tone
+from backend.ai_research.web_retriever import (
     get_retriever,
     get_default_retriever,
     scrape_urls,
     ContextCompressor,
 )
-from backend_demo.ai_research.embedding_service import Memory
-from backend_demo.ai_research.ai_research_agent import (
+from backend.ai_research.embedding_service import Memory
+from backend.ai_research.ai_research_agent import (
     choose_agent,
     get_sub_queries,
     construct_subtopics,

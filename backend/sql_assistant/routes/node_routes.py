@@ -5,7 +5,7 @@
 
 from langgraph.graph import END
 
-from backend_demo.sql_assistant.states.assistant_state import SQLAssistantState
+from backend.sql_assistant.states.assistant_state import SQLAssistantState
 
 
 def route_after_intent(state: SQLAssistantState):

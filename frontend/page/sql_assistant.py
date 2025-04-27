@@ -11,12 +11,12 @@ from datetime import datetime
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.sql_assistant.result_interpreter import create_result_interpreter
-from backend_demo.sql_assistant.sql_executor import create_sql_executor
-from backend_demo.sql_assistant.sql_generation import SQLGenerator
-from backend_demo.sql_assistant.query_enhancement import QueryEnhancer
-from backend_demo.sql_assistant.db_schema import create_schema_manager
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.sql_assistant.result_interpreter import create_result_interpreter
+from backend.sql_assistant.sql_executor import create_sql_executor
+from backend.sql_assistant.sql_generation import SQLGenerator
+from backend.sql_assistant.query_enhancement import QueryEnhancer
+from backend.sql_assistant.db_schema import create_schema_manager
 
 # 设置页面角色
 st.query_params.role = st.session_state.role

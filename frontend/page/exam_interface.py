@@ -9,8 +9,8 @@ import uuid
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.exam_generation.exam_generator import ExamGenerator, merge_questions
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.exam_generation.exam_generator import ExamGenerator, merge_questions
 
 st.query_params.role = st.session_state.role
 

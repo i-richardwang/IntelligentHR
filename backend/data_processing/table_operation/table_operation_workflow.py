@@ -3,13 +3,13 @@ import uuid
 from typing import List, Dict, Any, Tuple, Optional
 import pandas as pd
 
-from backend_demo.data_processing.table_operation.table_operation_core import (
+from backend.data_processing.table_operation.table_operation_core import (
     create_dataframe_assistant,
     process_user_query,
     create_langfuse_handler,
     record_user_feedback,
 )
-from backend_demo.data_processing.table_operation.table_operations import *
+from backend.data_processing.table_operation.table_operations import *
 
 # 配置日志
 logging.basicConfig(

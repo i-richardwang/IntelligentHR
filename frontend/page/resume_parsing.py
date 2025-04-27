@@ -23,13 +23,13 @@ from mysql.connector import Error as MySQLError
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.resume_management.extractor.resume_extraction_core import (
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.resume_management.extractor.resume_extraction_core import (
     process_resume,
     calculate_resume_hash,
     store_resume,
 )
-from backend_demo.resume_management.storage.resume_sql_storage import get_full_resume
+from backend.resume_management.storage.resume_sql_storage import get_full_resume
 
 # 常量定义
 MAX_CONCURRENT_TASKS = 1

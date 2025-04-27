@@ -1,7 +1,7 @@
-# backend_demo/ai_research/research_prompts.py
+# backend/ai_research/research_prompts.py
 
 from datetime import date, datetime, timezone
-from backend_demo.ai_research.research_enums import ReportSource, Tone
+from backend.ai_research.research_enums import ReportSource, Tone
 
 
 def auto_agent_instructions():

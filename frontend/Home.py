@@ -12,7 +12,7 @@ from langchain_community.cache import SQLiteCache
 
 set_llm_cache(SQLiteCache(database_path="data/llm_cache/langchain.db"))
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
 
 st.query_params.role = st.session_state.role
 
@@ -31,7 +31,7 @@ def main():
 
     st.markdown("---")
 
-    image = Image.open("frontend_demo/assets/IntelligentHR_Intro.png")
+    image = Image.open("frontend/assets/IntelligentHR_Intro.png")
     st.image(image, use_container_width=True)
 
     display_feature_overview()

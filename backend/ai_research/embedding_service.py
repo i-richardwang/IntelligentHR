@@ -1,4 +1,4 @@
-# backend_demo/ai_research/embedding_service.py
+# backend/ai_research/embedding_service.py
 import os
 from typing import List, Optional
 from langchain.embeddings.base import Embeddings

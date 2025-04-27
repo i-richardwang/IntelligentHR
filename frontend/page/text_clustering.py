@@ -1,5 +1,5 @@
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.text_processing.clustering.clustering_workflow import (
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.text_processing.clustering.clustering_workflow import (
     generate_categories,
     classify_texts,
 )

@@ -1,18 +1,18 @@
 import os
 import asyncio
 from typing import Dict, Optional, List
-from backend_demo.resume_management.recommendation.recommendation_requirements import (
+from backend.resume_management.recommendation.recommendation_requirements import (
     RecommendationRequirements,
 )
-from backend_demo.resume_management.recommendation.resume_search_strategy import (
+from backend.resume_management.recommendation.resume_search_strategy import (
     ResumeSearchStrategyGenerator,
     CollectionSearchStrategyGenerator,
 )
-from backend_demo.resume_management.recommendation.resume_scorer import ResumeScorer
-from backend_demo.resume_management.recommendation.recommendation_reason_generator import (
+from backend.resume_management.recommendation.resume_scorer import ResumeScorer
+from backend.resume_management.recommendation.recommendation_reason_generator import (
     RecommendationReasonGenerator,
 )
-from backend_demo.resume_management.recommendation.recommendation_output_generator import (
+from backend.resume_management.recommendation.recommendation_output_generator import (
     RecommendationOutputGenerator,
 )
 from langfuse.callback import CallbackHandler

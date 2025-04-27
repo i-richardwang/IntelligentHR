@@ -3,7 +3,7 @@ import uuid
 import asyncio
 from typing import List
 from utils.llm_tools import init_language_model, LanguageModelChain
-from backend_demo.text_processing.classification.content_analysis_core import (
+from backend.text_processing.classification.content_analysis_core import (
     ContentAnalysisResult,
     ContentAnalysisInput,
     CONTENT_ANALYSIS_SYSTEM_PROMPT,

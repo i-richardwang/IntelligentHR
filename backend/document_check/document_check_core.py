@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from langfuse.callback import CallbackHandler
 
 from utils.llm_tools import LanguageModelChain, init_language_model
-from backend_demo.document_check.document_check_prompts import (
+from backend.document_check.document_check_prompts import (
     DOCUMENT_CHECK_SYSTEM_MESSAGE,
     DOCUMENT_CHECK_HUMAN_MESSAGE,
 )

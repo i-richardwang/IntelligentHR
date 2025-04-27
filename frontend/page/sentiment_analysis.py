@@ -10,11 +10,11 @@ import asyncio
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from frontend_demo.ui_components import show_sidebar, show_footer, apply_common_styles
-from backend_demo.text_processing.classification.content_analysis_workflow import (
+from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
+from backend.text_processing.classification.content_analysis_workflow import (
     TextContentAnalysisWorkflow,
 )
-from backend_demo.text_processing.classification.content_analysis_core import (
+from backend.text_processing.classification.content_analysis_core import (
     ContentAnalysisInput,
     ContentAnalysisResult,
 )
