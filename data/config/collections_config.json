@@ -5,7 +5,7 @@
             "description": "Collection for company name standardization",
             "fields": [
                 {
-                    "name": "company_name",
+                    "name": "original_name",
                     "type": "str",
                     "description": "Original company name",
                     "is_vector": true
@@ -17,7 +17,7 @@
                 }
             ],
             "embedding_fields": [
-                "company_name"
+                "original_name"
             ]
         },
         "school_data": {
@@ -25,7 +25,7 @@
             "description": "Collection for school name standardization",
             "fields": [
                 {
-                    "name": "school_name",
+                    "name": "original_name",
                     "type": "str",
                     "description": "Original school name",
                     "is_vector": true
@@ -37,7 +37,7 @@
                 }
             ],
             "embedding_fields": [
-                "school_name"
+                "original_name"
             ]
         },
         "tools_description": {
