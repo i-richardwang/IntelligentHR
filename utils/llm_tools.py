@@ -11,7 +11,8 @@ from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain.embeddings.base import Embeddings
+from langchain_core.runnables import Runnable
+from langchain_core.embeddings import Embeddings
 
 # 配置日志
 logging.basicConfig(
@@ -98,8 +99,8 @@ class LanguageModelChain:
             raise ValueError("model_cls 必须是 Pydantic BaseModel 的子类")
         if not isinstance(sys_msg, str) or not isinstance(user_msg, str):
             raise ValueError("sys_msg 和 user_msg 必须是字符串类型")
-        if not callable(model):
-            raise ValueError("model 必须是可调用对象")
+        if not isinstance(model, Runnable) and not callable(model):
+            raise ValueError("model 必须是 langchain Runnable 或可调用对象")
 
         self.model_cls = model_cls
         self.parser = JsonOutputParser(pydantic_object=model_cls)

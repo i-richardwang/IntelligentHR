@@ -8,16 +8,28 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
 from tavily import TavilyClient
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import (
+from langchain_classic.retrievers import ContextualCompressionRetriever
+from langchain_classic.retrievers.document_compressors import (
     DocumentCompressorPipeline,
     EmbeddingsFilter,
 )
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
+
+
+class TavilyAPIError(Exception):
+    """Tavily API 相关错误（如缺少密钥、配置问题）。"""
+
+    pass
+
+
+class ScrapingError(Exception):
+    """网页抓取相关错误。"""
+
+    pass
 
 
 class TavilySearch:
@@ -44,16 +56,21 @@ class TavilySearch:
         获取Tavily API密钥
 
         :return: API密钥
-        :raises Exception: 如果未找到API密钥
+        :raises TavilyAPIError: 如果未找到API密钥
         """
         api_key = self.headers.get("tavily_api_key") or os.environ.get("TAVILY_API_KEY")
         if not api_key:
-            raise Exception("未找到Tavily API密钥。请设置TAVILY_API_KEY环境变量。")
+            raise TavilyAPIError(
+                "未找到Tavily API密钥。请设置TAVILY_API_KEY环境变量。"
+            )
         return api_key
 
     def search(self, max_results: int = 7) -> List[Dict[str, str]]:
         """
         执行搜索
+
+        Tavily 无结果或调用出错时，回退到 DuckDuckGo；两者都失败时返回空列表。
+        （API 密钥缺失属配置错误，会在客户端构造时以 TavilyAPIError 直接抛出。）
 
         :param max_results: 最大结果数
         :return: 搜索结果列表
@@ -66,29 +83,37 @@ class TavilySearch:
                 topic=self.topic,
             )
             sources = results.get("results", [])
-            if not sources:
-                raise Exception("Tavily API搜索未找到结果。")
-            return [{"href": obj["url"], "body": obj["content"]} for obj in sources]
+            if sources:
+                return [
+                    {"href": obj["url"], "body": obj["content"]} for obj in sources
+                ]
+            print("Tavily API搜索未找到结果。回退到DuckDuckGo搜索API...")
         except Exception as e:
-            print(f"错误: {e}。回退到DuckDuckGo搜索API...")
-            try:
-                ddg = DDGS()
-                return list(
-                    ddg.text(self.query, region="wt-wt", max_results=max_results)
-                )
-            except Exception as e:
-                print(f"错误: {e}。获取源失败。返回空响应。")
-                return []
+            print(f"Tavily搜索出错: {e}。回退到DuckDuckGo搜索API...")
+
+        # DuckDuckGo 回退
+        try:
+            ddg = DDGS()
+            results = list(
+                ddg.text(self.query, region="wt-wt", max_results=max_results)
+            )
+            if not results:
+                print("DuckDuckGo搜索同样未找到结果。")
+            return results
+        except Exception as ddg_error:
+            print(f"DuckDuckGo搜索出错: {ddg_error}。获取源失败。返回空响应。")
+            return []
 
 
 def get_retriever(retriever: str):
     """
-    获取检索器
+    按名称获取检索器类。
 
     :param retriever: 检索器名称
-    :return: 检索器类
+    :return: 对应的检索器类；未知名称返回 None（由调用方回退到默认检索器）
     """
-    return TavilySearch if retriever == "tavily" else TavilySearch
+    retrievers = {"tavily": TavilySearch}
+    return retrievers.get(retriever)
 
 
 def get_default_retriever():
@@ -103,24 +128,34 @@ def get_default_retriever():
 class BeautifulSoupScraper:
     """使用BeautifulSoup的网页抓取器"""
 
-    def __init__(self, link: str, session: requests.Session = None):
+    def __init__(self, link: str, session: requests.Session = None, config=None):
         """
         初始化抓取器
 
         :param link: 要抓取的URL
         :param session: 请求会话
+        :param config: 配置对象（可选，用于读取超时等设置）
         """
         self.link = link
         self.session = session or requests.Session()
+        self.config = config
 
     def scrape(self) -> str:
         """
         抓取网页内容
 
-        :return: 抓取的内容
+        :return: 抓取的内容（失败或非 HTML 资源时返回空字符串）
         """
         try:
-            response = self.session.get(self.link, timeout=4)
+            timeout = getattr(self.config, "scrape_timeout", 8) if self.config else 8
+            response = self.session.get(self.link, timeout=timeout)
+            response.raise_for_status()  # 检查 HTTP 错误状态码
+
+            # 跳过 PDF 等非 HTML 资源，避免二进制内容污染文本抽取
+            content_type = response.headers.get("Content-Type", "").lower()
+            if "application/pdf" in content_type:
+                return ""
+
             soup = BeautifulSoup(
                 response.content, "lxml", from_encoding=response.encoding
             )
@@ -133,6 +168,9 @@ class BeautifulSoupScraper:
             chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
             return "\n".join(chunk for chunk in chunks if chunk)
 
+        except requests.exceptions.RequestException as e:
+            print(f"网络请求错误 {self.link}: {str(e)}")
+            return ""
         except Exception as e:
             print(f"抓取 {self.link} 时出错: {str(e)}")
             return ""
@@ -155,19 +193,25 @@ class Scraper:
     """网页抓取器"""
 
     def __init__(
-        self, urls: List[str], user_agent: str, scraper_class=BeautifulSoupScraper
+        self,
+        urls: List[str],
+        user_agent: str,
+        config=None,
+        scraper_class=BeautifulSoupScraper,
     ):
         """
         初始化抓取器
 
         :param urls: 要抓取的URL列表
         :param user_agent: 用户代理字符串
+        :param config: 配置对象（可选，用于读取并发数、最小内容长度等设置）
         :param scraper_class: 使用的抓取器类
         """
         self.urls = urls
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
         self.scraper_class = scraper_class
+        self.config = config
 
     def run(self) -> List[Dict[str, Any]]:
         """
@@ -176,7 +220,10 @@ class Scraper:
         :return: 抓取结果列表
         """
         partial_extract = partial(self._extract_data_from_link, session=self.session)
-        with ThreadPoolExecutor(max_workers=20) as executor:
+        max_workers = (
+            getattr(self.config, "scrape_max_workers", 20) if self.config else 20
+        )
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             contents = executor.map(partial_extract, self.urls)
         return [content for content in contents if content["raw_content"] is not None]
 
@@ -191,10 +238,13 @@ class Scraper:
         :return: 包含抓取结果的字典
         """
         try:
-            scraper = self.scraper_class(link, session)
+            scraper = self.scraper_class(link, session, self.config)
             content = scraper.scrape()
 
-            if len(content) < 100:
+            min_length = (
+                getattr(self.config, "min_content_length", 100) if self.config else 100
+            )
+            if len(content) < min_length:
                 return {"url": link, "raw_content": None}
             return {"url": link, "raw_content": content}
         except Exception as e:
@@ -210,7 +260,7 @@ def scrape_urls(urls: List[str], cfg: Any) -> List[Dict[str, Any]]:
     :param cfg: 配置对象
     :return: 抓取结果列表
     """
-    scraper = Scraper(urls, cfg.user_agent)
+    scraper = Scraper(urls, cfg.user_agent, config=cfg)
     return scraper.run()
 
 
@@ -219,11 +269,14 @@ class SearchAPIRetriever(BaseRetriever):
 
     pages: List[Dict[str, Any]] = []
 
-    def get_relevant_documents(self, query: str) -> List[Document]:
+    def _get_relevant_documents(
+        self, query: str, *, run_manager=None
+    ) -> List[Document]:
         """
-        获取相关文档
+        获取相关文档（langchain 检索器契约方法，经 ``.invoke`` 调用）。
 
         :param query: 查询字符串
+        :param run_manager: 检索回调管理器（由 langchain 传入）
         :return: 相关文档列表
         """
         return [

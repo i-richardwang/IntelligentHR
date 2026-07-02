@@ -6,7 +6,7 @@ from typing import List, Dict, Tuple, Any, Optional
 from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI
 

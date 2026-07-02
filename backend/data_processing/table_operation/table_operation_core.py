@@ -4,8 +4,8 @@ from typing import List, Dict, Any, Optional
 
 import uuid
 import json
-from langfuse import Langfuse
-from langfuse.callback import CallbackHandler
+from langfuse import get_client
+from utils.langfuse_tools import get_langfuse_config
 
 from langchain_core.tools import tool
 
@@ -25,7 +25,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-langfuse_client = Langfuse()
+# 使用全局单例客户端（在 utils.langfuse_tools 导入时已初始化）
+langfuse_client = get_client()
 
 # 初始化语言模型
 language_model = init_language_model(
@@ -91,24 +92,25 @@ HUMAN_MESSAGE_TEMPLATE = """
 """
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
+def create_langfuse_config(session_id: str, step: str) -> dict:
     """
-    创建 Langfuse CallbackHandler。
+    构造带 Langfuse 监控回调的 invoke config。
 
     Args:
         session_id: 会话ID。
         step: 当前步骤名称。
 
     Returns:
-        配置好的 Langfuse CallbackHandler。
+        可直接传给 chain.invoke(config=...) 的配置字典。
     """
-    return CallbackHandler(
-        tags=["table_operation"], session_id=session_id, metadata={"step": step}
+    return get_langfuse_config(
+        session_id=session_id, tags=["table_operation"], metadata={"step": step}
     )
 
 
 def record_user_feedback(trace_id: str, is_useful: bool):
-    langfuse_client.score(
+    # 以布尔分数记录用户对本次结果的反馈
+    langfuse_client.create_score(
         trace_id=trace_id, name="feedback", value=is_useful, data_type="BOOLEAN"
     )
 
@@ -233,7 +235,7 @@ def process_user_query(
         if session_id is None:
             session_id = str(uuid.uuid4())
 
-        langfuse_handler = create_langfuse_handler(session_id, "process_user_query")
+        langfuse_config = create_langfuse_config(session_id, "process_user_query")
 
         # 使用新的 get_similar_tools 函数
         tools_description = get_similar_tools(user_input)
@@ -251,11 +253,11 @@ def process_user_query(
         }
 
         logger.info(f"Processing user query: {user_input}")
-        result = assistant_chain.invoke(
-            input_data, config={"callbacks": [langfuse_handler]}
-        )
+        result = assistant_chain.invoke(input_data, config=langfuse_config)
 
-        trace_id = langfuse_handler.get_trace_id()
+        # 从本次调用的 CallbackHandler 取回 trace_id
+        handlers = langfuse_config.get("callbacks", [])
+        trace_id = handlers[-1].last_trace_id if handlers else None
         result["trace_id"] = trace_id
 
         logger.info(f"Query processed successfully. Result: {result}")

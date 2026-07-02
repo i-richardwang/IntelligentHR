@@ -1,7 +1,7 @@
 # backend/ai_research/embedding_service.py
 import os
 from typing import List, Optional
-from langchain.embeddings.base import Embeddings
+from langchain_core.embeddings import Embeddings
 from utils.llm_tools import CustomEmbeddings
 
 

@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 from utils.llm_tools import init_language_model, LanguageModelChain
 
@@ -114,9 +114,9 @@ class ExamGenerator:
         :param previous_questions: 之前生成的问题，用于避免重复
         :return: 生成的问题列表
         """
-        langfuse_handler = CallbackHandler(
-            tags=["exam_generation"],
+        langfuse_config = get_langfuse_config(
             session_id=session_id,
+            tags=["exam_generation"],
             metadata={"step": "generate_questions", "question_type": question_type},
         )
 
@@ -133,7 +133,7 @@ class ExamGenerator:
                     "question_type": question_type,
                     "previous_questions": previous_questions or "",
                 },
-                config={"callbacks": [langfuse_handler]},
+                config=langfuse_config,
             )
             return result["questions"]
         except Exception as e:

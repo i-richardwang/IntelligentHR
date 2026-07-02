@@ -1,4 +1,4 @@
-# backend/ai_researcher/ai_researcher.py
+# backend/ai_research/ai_researcher.py
 
 import asyncio
 from typing import List, Dict, Any, Optional
@@ -57,7 +57,9 @@ class AIResearcher:
         :param max_subtopics: 最大子主题数（可选）
         :param max_search_results_per_query: 每个查询的最大搜索结果数（可选）
         """
-        self.query = query
+        if not query or not query.strip():
+            raise ValueError("研究查询内容不能为空")
+        self.query = query.strip()
         self.report_type = report_type
         self.report_source = report_source
         self.tone = tone

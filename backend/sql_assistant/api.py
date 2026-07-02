@@ -25,17 +25,6 @@ logger = logging.getLogger(__name__)
 # 设置LLM缓存
 set_llm_cache(SQLiteCache(database_path="./data/llm_cache/langchain.db"))
 
-if os.getenv("PHOENIX_ENABLED", "false").lower() == "true":
-    from phoenix.otel import register
-    from openinference.instrumentation.langchain import LangChainInstrumentor
-
-    tracer_provider = register(
-        project_name="sql_assistant",
-        endpoint="http://localhost:6006/v1/traces",
-    )
-
-    LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
-
 # FastAPI应用
 app = FastAPI(title="SQL助手API")
 

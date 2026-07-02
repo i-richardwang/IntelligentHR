@@ -5,7 +5,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 
 import pandas as pd
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 from utils.llm_tools import LanguageModelChain, init_language_model
 from utils.text_utils import (
@@ -34,19 +34,22 @@ language_model = init_language_model(
     provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
 )
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
+
+def create_langfuse_config(session_id: str, step: str) -> dict:
     """
-    创建Langfuse回调处理器
+    构造带 Langfuse 监控回调的 invoke config。
 
     Args:
         session_id: 会话ID
         step: 当前步骤名称
 
     Returns:
-        CallbackHandler: Langfuse回调处理器实例
+        dict: 可直接传给 chain.invoke(config=...) 的配置字典
     """
-    return CallbackHandler(
-        tags=["text_clustering"], session_id=session_id, metadata={"step": step}
+    return get_langfuse_config(
+        session_id=session_id,
+        tags=["text_clustering"],
+        metadata={"step": step},
     )
 
 def generate_unique_ids(df: pd.DataFrame) -> pd.DataFrame:
@@ -115,7 +118,7 @@ def generate_initial_categories(
     Returns:
         List[Dict]: 生成的初始类别列表
     """
-    langfuse_handler = create_langfuse_handler(session_id, "initial_categories")
+    langfuse_config = create_langfuse_config(session_id, "initial_categories")
     category_chain = LanguageModelChain(
         Categories,
         INITIAL_CATEGORY_GENERATION_SYSTEM_MESSAGE,
@@ -132,7 +135,7 @@ def generate_initial_categories(
                 "category_count": category_count,
                 "additional_requirements": additional_requirements,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
         categories_list.append(result)
 
@@ -160,7 +163,7 @@ def merge_categories(
     Returns:
         Dict: 合并后的类别字典
     """
-    langfuse_handler = create_langfuse_handler(session_id, "merge_categories")
+    langfuse_config = create_langfuse_config(session_id, "merge_categories")
     merge_chain = LanguageModelChain(
         Categories,
         MERGE_CATEGORIES_SYSTEM_MESSAGE,
@@ -176,7 +179,7 @@ def merge_categories(
             "max_categories": max_categories,
             "additional_requirements": additional_requirements,
         },
-        config={"callbacks": [langfuse_handler]},
+        config=langfuse_config,
     )
 
     return result
@@ -241,7 +244,7 @@ def classify_single_batch(
     categories: Dict,
     text_topic: str,
     session_id: str,
-    langfuse_handler: CallbackHandler,
+    langfuse_config: dict,
     classification_chain: LanguageModelChain,
     is_multi_label: bool,
 ) -> List[Dict]:
@@ -253,7 +256,7 @@ def classify_single_batch(
         categories: 类别字典
         text_topic: 文本主题或背景
         session_id: 会话ID
-        langfuse_handler: Langfuse回调处理器
+        langfuse_config: Langfuse invoke 配置
         classification_chain: 分类链
         is_multi_label: 是否为多标签分类
 
@@ -267,7 +270,7 @@ def classify_single_batch(
                 "categories": categories,
                 "text_table": text_batch,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
         return result["classifications"]
     except Exception as e:
@@ -302,7 +305,7 @@ def classify_texts(
     Returns:
         pd.DataFrame: 包含分类结果的DataFrame
     """
-    langfuse_handler = create_langfuse_handler(session_id, "classify_texts")
+    langfuse_config = create_langfuse_config(session_id, "classify_texts")
 
     system_message = (
         MULTI_LABEL_CLASSIFICATION_SYSTEM_MESSAGE
@@ -329,7 +332,7 @@ def classify_texts(
                 categories,
                 text_topic,
                 session_id,
-                langfuse_handler,
+                langfuse_config,
                 classification_chain,
                 is_multi_label,
             )

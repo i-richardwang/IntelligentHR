@@ -45,6 +45,10 @@ class Config:
         self.scraper = os.getenv("SCRAPER", "bs")
         self.max_subtopics = int(os.getenv("MAX_SUBTOPICS", 5))
         self.doc_path = os.getenv("DOC_PATH", "")
+        # Web 抓取健壮性参数（可经环境变量调节）
+        self.scrape_timeout = int(os.getenv("SCRAPE_TIMEOUT", 8))
+        self.scrape_max_workers = int(os.getenv("SCRAPE_MAX_WORKERS", 20))
+        self.min_content_length = int(os.getenv("MIN_CONTENT_LENGTH", 100))
         self.llm_kwargs = {}
 
         if self.doc_path:

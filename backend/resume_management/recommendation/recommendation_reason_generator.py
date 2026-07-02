@@ -3,7 +3,7 @@ from typing import List, Dict, Optional
 import pandas as pd
 import os
 from utils.llm_tools import LanguageModelChain, init_language_model
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 import uuid
 import asyncio
 
@@ -58,11 +58,11 @@ class RecommendationReasonGenerator:
             self.language_model,
         )()
 
-    def create_langfuse_handler(self, session_id: str, step: str) -> CallbackHandler:
-        """创建Langfuse回调处理器"""
-        return CallbackHandler(
-            tags=["recommendation_reason"],
+    def create_langfuse_config(self, session_id: str, step: str) -> dict:
+        """构造该步骤的 Langfuse 监控 config，供 chain.invoke(config=...) 使用。"""
+        return get_langfuse_config(
             session_id=session_id,
+            tags=["recommendation_reason"],
             metadata={"step": step},
         )
 
@@ -94,7 +94,7 @@ class RecommendationReasonGenerator:
                 "skills_overview": resume["skills_overview"],
             }
 
-            langfuse_handler = self.create_langfuse_handler(
+            langfuse_config = self.create_langfuse_config(
                 session_id, "generate_recommendation_reason"
             )
             reason_result = await self.recommendation_reason_chain.ainvoke(
@@ -103,7 +103,7 @@ class RecommendationReasonGenerator:
                     "resume_score": resume_score,
                     "resume_overview": resume_overview,
                 },
-                config={"callbacks": [langfuse_handler]},
+                config=langfuse_config,
             )
 
             return {"resume_id": resume["resume_id"], "reason": reason_result["reason"]}

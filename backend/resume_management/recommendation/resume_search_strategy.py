@@ -3,7 +3,7 @@ import uuid
 import os
 from typing import List, Dict, Optional
 from pydantic import BaseModel
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 from backend.resume_management.recommendation.recommendation_state import (
     ResumeSearchStrategy,
     CollectionSearchStrategy,
@@ -62,11 +62,11 @@ class ResumeSearchStrategyGenerator:
             language_model,
         )()
 
-    def create_langfuse_handler(self, session_id: str, step: str) -> CallbackHandler:
-        """创建 Langfuse 回调处理器"""
-        return CallbackHandler(
-            tags=["resume_search_strategy"],
+    def create_langfuse_config(self, session_id: str, step: str) -> dict:
+        """构造该步骤的 Langfuse 监控 config，供 chain.invoke(config=...) 使用。"""
+        return get_langfuse_config(
             session_id=session_id,
+            tags=["resume_search_strategy"],
             metadata={"step": step},
         )
 
@@ -90,12 +90,12 @@ class ResumeSearchStrategyGenerator:
             raise ValueError("精炼后的查询不能为空。无法生成搜索策略。")
 
         session_id = session_id or str(uuid.uuid4())
-        langfuse_handler = self.create_langfuse_handler(
+        langfuse_config = self.create_langfuse_config(
             session_id, "generate_search_strategy"
         )
 
         search_strategy_result = await self.resume_search_strategy_chain.ainvoke(
-            {"refined_query": refined_query}, config={"callbacks": [langfuse_handler]}
+            {"refined_query": refined_query}, config=langfuse_config
         )
 
         resume_search_strategy = ResumeSearchStrategy(**search_strategy_result)
@@ -248,11 +248,11 @@ class CollectionSearchStrategyGenerator:
         **query_content必须使用英文！**
         """
 
-    def create_langfuse_handler(self, session_id: str, step: str) -> CallbackHandler:
-        """创建 Langfuse 回调处理器"""
-        return CallbackHandler(
-            tags=["collection_search_strategy"],
+    def create_langfuse_config(self, session_id: str, step: str) -> dict:
+        """构造该步骤的 Langfuse 监控 config，供 chain.invoke(config=...) 使用。"""
+        return get_langfuse_config(
             session_id=session_id,
+            tags=["collection_search_strategy"],
             metadata={"step": step},
         )
 
@@ -282,12 +282,12 @@ class CollectionSearchStrategyGenerator:
                 language_model,
             )()
 
-            langfuse_handler = self.create_langfuse_handler(
+            langfuse_config = self.create_langfuse_config(
                 session_id, f"generate_strategy_for_{collection_name}"
             )
             search_strategy_result = await collection_search_strategy_chain.ainvoke(
                 {"refined_query": refined_query, "collection_name": collection_name},
-                config={"callbacks": [langfuse_handler]},
+                config=langfuse_config,
             )
 
             return {collection_name: CollectionSearchStrategy(**search_strategy_result)}

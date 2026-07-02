@@ -4,7 +4,7 @@ import uuid
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
 
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 from utils.llm_tools import LanguageModelChain, init_language_model
 from backend.document_check.document_check_prompts import (
@@ -41,16 +41,18 @@ document_checker = LanguageModelChain(
 )()
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
-    return CallbackHandler(
-        tags=["document_check"], session_id=session_id, metadata={"step": step}
+def create_langfuse_config(session_id: str, step: str) -> dict:
+    return get_langfuse_config(
+        session_id=session_id,
+        tags=["document_check"],
+        metadata={"step": step},
     )
 
 
 async def check_page(
     page_elements: List[dict], session_id: str, page_number: int
 ) -> Dict[str, Any]:
-    langfuse_handler = create_langfuse_handler(session_id, f"check_page_{page_number}")
+    langfuse_config = create_langfuse_config(session_id, f"check_page_{page_number}")
 
     formatted_content = "\n".join(
         [
@@ -61,7 +63,7 @@ async def check_page(
 
     result = await document_checker.ainvoke(
         {"document_content": formatted_content},
-        config={"callbacks": [langfuse_handler]},
+        config=langfuse_config,
     )
 
     return {"page_number": page_number, **result}

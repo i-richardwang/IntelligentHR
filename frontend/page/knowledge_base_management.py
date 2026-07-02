@@ -19,7 +19,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
 from utils.llm_tools import init_language_model, CustomEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 # st.query_params.role = st.session_state.role
 
@@ -46,20 +46,20 @@ if "top_k" not in st.session_state:
     st.session_state.top_k = 5
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
+def create_langfuse_config(session_id: str, step: str) -> dict:
     """
-    创建Langfuse回调处理器
+    构造带 Langfuse 监控回调的 invoke config。
 
     Args:
         session_id: 会话ID
         step: 处理步骤
 
     Returns:
-        Langfuse回调处理器
+        可直接传给 chain.invoke(config=...) 的配置字典
     """
-    return CallbackHandler(
-        tags=["knowledge_base_qa"],
+    return get_langfuse_config(
         session_id=session_id,
+        tags=["knowledge_base_qa"],
         metadata={"step": step},
     )
 
@@ -348,9 +348,9 @@ def process_rag_query(query: str) -> str:
         for doc in retrieved_docs
     ])
     
-    # 创建Langfuse回调处理器
-    langfuse_handler = create_langfuse_handler(
-        st.session_state.session_id, 
+    # 构造 Langfuse 监控 config
+    langfuse_config = create_langfuse_config(
+        st.session_state.session_id,
         "knowledge_base_rag_query"
     )
     
@@ -378,9 +378,9 @@ def process_rag_query(query: str) -> str:
             "chat_history": chat_history,
             "query": query
         },
-        config={"callbacks": [langfuse_handler]},
+        config=langfuse_config,
     )
-    
+
     return response.content
 
 

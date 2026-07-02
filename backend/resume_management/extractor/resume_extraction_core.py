@@ -12,7 +12,7 @@ import logging
 import uuid
 from typing import Dict, Any
 
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 from utils.llm_tools import LanguageModelChain, init_language_model
 from backend.resume_management.extractor.resume_data_models import (
@@ -58,7 +58,7 @@ async def extract_personal_education(
     Returns:
         Dict[str, Any]: 包含个人信息和教育背景的字典。
     """
-    langfuse_handler = create_langfuse_handler(session_id, "extract_personal_education")
+    langfuse_config = create_langfuse_config(session_id, "extract_personal_education")
     extractor = LanguageModelChain(
         ResumePersonalEducation,
         PERSONAL_EDUCATION_SYSTEM_MESSAGE,
@@ -66,7 +66,7 @@ async def extract_personal_education(
         language_model,
     )()
     return await extractor.ainvoke(
-        {"raw_resume_content": resume_content}, config={"callbacks": [langfuse_handler]}
+        {"raw_resume_content": resume_content}, config=langfuse_config
     )
 
 
@@ -81,7 +81,7 @@ async def extract_work_project(resume_content: str, session_id: str) -> Dict[str
     Returns:
         Dict[str, Any]: 包含工作和项目经历的字典。
     """
-    langfuse_handler = create_langfuse_handler(session_id, "extract_work_project")
+    langfuse_config = create_langfuse_config(session_id, "extract_work_project")
     extractor = LanguageModelChain(
         ResumeWorkProject,
         WORK_PROJECT_SYSTEM_MESSAGE,
@@ -89,7 +89,7 @@ async def extract_work_project(resume_content: str, session_id: str) -> Dict[str
         language_model,
     )()
     return await extractor.ainvoke(
-        {"raw_resume_content": resume_content}, config={"callbacks": [langfuse_handler]}
+        {"raw_resume_content": resume_content}, config=langfuse_config
     )
 
 
@@ -106,7 +106,7 @@ async def generate_resume_summary(
     Returns:
         Dict[str, Any]: 包含简历概述的字典。
     """
-    langfuse_handler = create_langfuse_handler(session_id, "generate_resume_summary")
+    langfuse_config = create_langfuse_config(session_id, "generate_resume_summary")
     summarizer = LanguageModelChain(
         Summary,
         RESUME_SUMMARY_SYSTEM_MESSAGE,
@@ -114,7 +114,7 @@ async def generate_resume_summary(
         language_model,
     )()
     return await summarizer.ainvoke(
-        {"raw_resume_content": resume_content}, config={"callbacks": [langfuse_handler]}
+        {"raw_resume_content": resume_content}, config=langfuse_config
     )
 
 
@@ -205,17 +205,19 @@ def store_resume(resume_data: Dict[str, Any]) -> bool:
         return False
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
+def create_langfuse_config(session_id: str, step: str) -> dict:
     """
-    创建Langfuse回调处理器。
+    构造该步骤的 Langfuse 监控 config。
 
     Args:
         session_id (str): 会话ID。
         step (str): 当前步骤。
 
     Returns:
-        CallbackHandler: Langfuse回调处理器实例。
+        dict: 可直接传给 chain.invoke(config=...) 的配置字典。
     """
-    return CallbackHandler(
-        tags=["resume_extraction"], session_id=session_id, metadata={"step": step}
+    return get_langfuse_config(
+        session_id=session_id,
+        tags=["resume_extraction"],
+        metadata={"step": step},
     )

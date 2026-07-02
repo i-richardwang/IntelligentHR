@@ -4,7 +4,7 @@ from backend.resume_management.recommendation.recommendation_state import (
     QueryRefinement,
 )
 from utils.llm_tools import LanguageModelChain, init_language_model
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 import uuid
 import os
 import asyncio
@@ -63,11 +63,11 @@ class RecommendationRequirements:
         QueryRefinement, system_message, human_message_template, language_model
     )()
 
-    def create_langfuse_handler(self, session_id: str, step: str) -> CallbackHandler:
-        """创建 Langfuse 回调处理器"""
-        return CallbackHandler(
-            tags=["resume_search_strategy"],
+    def create_langfuse_config(self, session_id: str, step: str) -> dict:
+        """构造该步骤的 Langfuse 监控 config，供 chain.invoke(config=...) 使用。"""
+        return get_langfuse_config(
             session_id=session_id,
+            tags=["resume_search_strategy"],
             metadata={"step": step},
         )
 
@@ -95,13 +95,13 @@ class RecommendationRequirements:
 
         query_history_for_model = self.query_history[:-1]
 
-        langfuse_handler = self.create_langfuse_handler(session_id, "query_refinement")
+        langfuse_config = self.create_langfuse_config(session_id, "query_refinement")
         refinement_result = await self.query_refiner.ainvoke(
             {
                 "query_history": "\n".join(query_history_for_model),
                 "latest_response": latest_response,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
 
         refined_query = QueryRefinement(**refinement_result)

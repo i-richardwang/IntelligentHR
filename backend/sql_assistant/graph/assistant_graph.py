@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 from backend.sql_assistant.states.assistant_state import SQLAssistantState
 from backend.sql_assistant.nodes.intent_analysis_node import intent_analysis_node
@@ -39,17 +39,24 @@ from backend.sql_assistant.routes.node_routes import (
 logger = logging.getLogger(__name__)
 
 
-def create_langfuse_handler(session_id: str) -> CallbackHandler:
+def create_langfuse_config(
+    session_id: str, existing_config: Optional[dict] = None
+) -> dict:
     """
-    创建Langfuse回调处理器。
+    构造带 Langfuse 监控回调的 invoke config。
 
     Args:
         session_id: 会话ID
+        existing_config: 已有的 config（如 langgraph 的 configurable），会被合并保留
 
     Returns:
-        CallbackHandler: Langfuse回调处理器实例
+        dict: 可传给 graph.invoke(config=...) 的配置字典
     """
-    return CallbackHandler(tags=["sql_assistant"], session_id=session_id)
+    return get_langfuse_config(
+        session_id=session_id,
+        tags=["sql_assistant"],
+        existing_config=existing_config,
+    )
 
 
 def build_sql_assistant_graph() -> StateGraph:
@@ -168,9 +175,9 @@ def run_sql_assistant(
         }
     }
 
-    # 仅在启用 Langfuse 时添加 callbacks
+    # 仅在启用 Langfuse 时注入回调（保留 configurable，追加 callbacks 与 langfuse_* metadata）
     if os.getenv("LANGFUSE_ENABLED", "false").lower() == "true":
-        config["callbacks"] = [create_langfuse_handler(thread_id)]
+        config = create_langfuse_config(thread_id, existing_config=config)
 
     # 构造输入状态
     state_input = {

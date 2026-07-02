@@ -13,7 +13,7 @@ from backend.sql_assistant.utils.format_utils import (
     format_term_descriptions,
 )
 from utils.llm_tools import init_language_model, LanguageModelChain
-from langchain.schema import AIMessage
+from langchain_core.messages import AIMessage
 
 logger = logging.getLogger(__name__)
 

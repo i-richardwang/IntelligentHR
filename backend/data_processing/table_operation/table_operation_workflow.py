@@ -6,7 +6,6 @@ import pandas as pd
 from backend.data_processing.table_operation.table_operation_core import (
     create_dataframe_assistant,
     process_user_query,
-    create_langfuse_handler,
     record_user_feedback,
 )
 from backend.data_processing.table_operation.table_operations import *
@@ -30,7 +29,7 @@ class DataFrameWorkflow:
         self.assistant_chain = create_dataframe_assistant()
         self.dataframes: Dict[str, pd.DataFrame] = {}
         self.available_tools = [
-            tool for tool in globals().values() if callable(tool) and hasattr(tool, 'name')
+            tool for tool in globals().values() if hasattr(tool, 'invoke') and hasattr(tool, 'name')
         ]
         self.conversation_history: List[Dict[str, str]] = []
         self.current_state: str = "initial"

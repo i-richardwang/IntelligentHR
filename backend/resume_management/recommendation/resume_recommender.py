@@ -15,7 +15,7 @@ from backend.resume_management.recommendation.recommendation_reason_generator im
 from backend.resume_management.recommendation.recommendation_output_generator import (
     RecommendationOutputGenerator,
 )
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 import uuid
 
 
@@ -39,11 +39,11 @@ class ResumeRecommender:
         self.final_recommendations = None
         self.session_id: str = str(uuid.uuid4())
 
-    def create_langfuse_handler(self, session_id: str, step: str) -> CallbackHandler:
-        """创建 Langfuse 回调处理器"""
-        return CallbackHandler(
-            tags=["resume_search_strategy"],
+    def create_langfuse_config(self, session_id: str, step: str) -> dict:
+        """构造该步骤的 Langfuse 监控 config，供 chain.invoke(config=...) 使用。"""
+        return get_langfuse_config(
             session_id=session_id,
+            tags=["resume_search_strategy"],
             metadata={"step": step},
         )
 

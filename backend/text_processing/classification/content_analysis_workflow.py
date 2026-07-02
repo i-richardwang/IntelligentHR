@@ -9,7 +9,7 @@ from backend.text_processing.classification.content_analysis_core import (
     CONTENT_ANALYSIS_SYSTEM_PROMPT,
     CONTENT_ANALYSIS_HUMAN_PROMPT,
 )
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 
 class TextContentAnalysisWorkflow:
@@ -42,7 +42,7 @@ class TextContentAnalysisWorkflow:
             分析结果，包含有效性、情感倾向和敏感信息标识
         """
         session_id = session_id or str(uuid.uuid4())
-        langfuse_handler = create_langfuse_handler(
+        langfuse_config = create_langfuse_config(
             session_id, "content_analysis"
         )
 
@@ -51,7 +51,7 @@ class TextContentAnalysisWorkflow:
                 "text": input_data.text,
                 "context": input_data.context,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
         return ContentAnalysisResult(**result)
 
@@ -90,7 +90,7 @@ class TextContentAnalysisWorkflow:
             分析结果，包含有效性、情感倾向和敏感信息标识
         """
         session_id = session_id or str(uuid.uuid4())
-        langfuse_handler = create_langfuse_handler(
+        langfuse_config = create_langfuse_config(
             session_id, "content_analysis"
         )
 
@@ -99,7 +99,7 @@ class TextContentAnalysisWorkflow:
                 "text": input_data.text,
                 "context": input_data.context,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
         return ContentAnalysisResult(**result)
 
@@ -129,19 +129,19 @@ class TextContentAnalysisWorkflow:
         return await asyncio.gather(*tasks)
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
+def create_langfuse_config(session_id: str, step: str) -> dict:
     """
-    创建Langfuse回调处理器
+    构造带 Langfuse 监控回调的 invoke config。
 
     Args:
         session_id: 会话ID
         step: 处理步骤
 
     Returns:
-        Langfuse回调处理器
+        可直接传给 chain.invoke(config=...) 的配置字典
     """
-    return CallbackHandler(
-        tags=["content_analysis"],
+    return get_langfuse_config(
         session_id=session_id,
+        tags=["content_analysis"],
         metadata={"step": step},
     )

@@ -3,7 +3,7 @@ import os
 import uuid
 from typing import Dict, Any
 
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 from pydantic import BaseModel, Field
 
 from utils.llm_tools import init_language_model, LanguageModelChain
@@ -44,19 +44,21 @@ HUMAN_MESSAGE_TEMPLATE = """
 """
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
+def create_langfuse_config(session_id: str, step: str) -> dict:
     """
-    创建Langfuse回调处理器。
+    构造带 Langfuse 监控回调的 invoke config。
 
     Args:
         session_id (str): 会话ID。
         step (str): 当前步骤。
 
     Returns:
-        CallbackHandler: Langfuse回调处理器实例。
+        dict: 可直接传给 chain.invoke(config=...) 的配置字典。
     """
-    return CallbackHandler(
-        tags=["translation"], session_id=session_id, metadata={"step": step}
+    return get_langfuse_config(
+        session_id=session_id,
+        tags=["translation"],
+        metadata={"step": step},
     )
 
 
@@ -101,10 +103,10 @@ class Translator:
             session_id = str(uuid.uuid4())
 
         try:
-            langfuse_handler = create_langfuse_handler(session_id, "translate")
+            langfuse_config = create_langfuse_config(session_id, "translate")
             result = await self.translation_chain.ainvoke(
                 {"text_to_translate": text, "text_topic": text_topic},
-                config={"callbacks": [langfuse_handler]},
+                config=langfuse_config,
             )
             self._validate_translation_result(result)
             return result["translated_text"]

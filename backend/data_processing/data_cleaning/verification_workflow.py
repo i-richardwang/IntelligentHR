@@ -1,7 +1,7 @@
 import asyncio
 from typing import Dict, Any, List, Optional, Callable, Literal
 from uuid import uuid4
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 import traceback
 import logging
 
@@ -30,9 +30,11 @@ class ProcessingStatus(Enum):
     ERROR = "处理错误"
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
-    return CallbackHandler(
-        tags=["entity_verification"], session_id=session_id, metadata={"step": step}
+def create_langfuse_config(session_id: str, step: str) -> dict:
+    return get_langfuse_config(
+        session_id=session_id,
+        tags=["entity_verification"],
+        metadata={"step": step},
     )
 
 
@@ -79,11 +81,11 @@ class EntityVerificationWorkflow:
         try:
             # Input validation
             if not self.skip_validation:
-                langfuse_handler = create_langfuse_handler(
+                langfuse_config = create_langfuse_config(
                     session_id, "input_validation"
                 )
                 result["is_valid"] = await self._validate_input(
-                    user_query, langfuse_handler
+                    user_query, langfuse_config
                 )
             else:
                 result["is_valid"] = True
@@ -102,12 +104,12 @@ class EntityVerificationWorkflow:
             if not self.skip_search:
                 search_results = await self._perform_web_search(user_query)
                 result["search_results"] = search_results
-                langfuse_handler = create_langfuse_handler(
+                langfuse_config = create_langfuse_config(
                     session_id, "search_analysis"
                 )
                 result["identified_entity_name"], is_identified = (
                     await self._analyze_search_results(
-                        user_query, search_results, langfuse_handler
+                        user_query, search_results, langfuse_config
                     )
                 )
                 result["status"] = (
@@ -136,14 +138,14 @@ class EntityVerificationWorkflow:
                     result["standard_name"] = retrieval_results[0].get(
                         self.standard_field, ""
                     )
-                    langfuse_handler = create_langfuse_handler(
+                    langfuse_config = create_langfuse_config(
                         session_id, "name_verification"
                     )
                     is_verified = await self._evaluate_match(
                         user_query,
                         result["retrieved_entity_name"],
                         search_results if not self.skip_search else "",
-                        langfuse_handler,
+                        langfuse_config,
                     )
                     result["status"] = (
                         ProcessingStatus.VERIFIED
@@ -170,7 +172,7 @@ class EntityVerificationWorkflow:
         }
 
     async def _validate_input(
-        self, user_query: str, langfuse_handler: CallbackHandler
+        self, user_query: str, langfuse_config: dict
     ) -> bool:
         validation_result = await input_validator.ainvoke(
             {
@@ -178,7 +180,7 @@ class EntityVerificationWorkflow:
                 "entity_type": self.entity_type,
                 "validation_instructions": self.validation_instructions,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
         return validation_result["is_valid"]
 
@@ -191,7 +193,7 @@ class EntityVerificationWorkflow:
             raise ValueError(f"Unsupported search tool: {self.search_tool}")
 
     async def _analyze_search_results(
-        self, user_query: str, search_results: str, langfuse_handler: CallbackHandler
+        self, user_query: str, search_results: str, langfuse_config: dict
     ) -> tuple[Optional[str], bool]:
         analysis_result = await search_analysis.ainvoke(
             {
@@ -200,7 +202,7 @@ class EntityVerificationWorkflow:
                 "entity_type": self.entity_type,
                 "analysis_instructions": self.analysis_instructions,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
         return (
             analysis_result["identified_entity"],
@@ -223,7 +225,7 @@ class EntityVerificationWorkflow:
         user_query: str,
         retrieved_name: str,
         search_results: str,
-        langfuse_handler: CallbackHandler,
+        langfuse_config: dict,
     ) -> bool:
         verified_result = await name_verifier.ainvoke(
             {
@@ -233,7 +235,7 @@ class EntityVerificationWorkflow:
                 "entity_type": self.entity_type,
                 "verification_instructions": self.verification_instructions,
             },
-            config={"callbacks": [langfuse_handler]},
+            config=langfuse_config,
         )
         return verified_result["verification_status"] == "verified"
 

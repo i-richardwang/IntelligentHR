@@ -48,7 +48,7 @@ def generate_csv(tools, output_file):
 
 if __name__ == "__main__":
     tools = [
-        tool for tool in globals().values() if callable(tool) and hasattr(tool, "name")
+        tool for tool in globals().values() if hasattr(tool, "invoke") and hasattr(tool, "name")
     ]
 
     output_file = os.path.join("data", "datasets", "tools_description.csv")

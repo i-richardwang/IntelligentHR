@@ -2,7 +2,7 @@ import os
 from typing import Literal
 from pydantic import BaseModel, Field
 from utils.llm_tools import LanguageModelChain, init_language_model
-from langfuse.callback import CallbackHandler
+from utils.langfuse_tools import get_langfuse_config
 
 # 初始化语言模型
 language_model = init_language_model(
@@ -67,20 +67,22 @@ resume_comparison_chain = LanguageModelChain(
 )()
 
 
-def create_langfuse_handler(session_id: str, step: str) -> CallbackHandler:
-    return CallbackHandler(
-        tags=["resume_comparison"], session_id=session_id, metadata={"step": step}
+def create_langfuse_config(session_id: str, step: str) -> dict:
+    return get_langfuse_config(
+        session_id=session_id,
+        tags=["resume_comparison"],
+        metadata={"step": step},
     )
 
 
 async def compare_resumes(
     uploaded_resume: str, existing_resume: str, session_id: str
 ) -> ResumeComparisonResult:
-    langfuse_handler = create_langfuse_handler(session_id, "compare_resumes")
+    langfuse_config = create_langfuse_config(session_id, "compare_resumes")
 
     result = await resume_comparison_chain.ainvoke(
         {"uploaded_resume": uploaded_resume, "existing_resume": existing_resume},
-        config={"callbacks": [langfuse_handler]},
+        config=langfuse_config,
     )
 
     return result
