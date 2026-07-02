@@ -11,6 +11,7 @@ from sklearn.metrics import (
     mean_squared_error,
     r2_score,
 )
+from sklearn.utils.multiclass import unique_labels
 from typing import List, Dict, Any, Tuple
 import joblib
 from datetime import datetime
@@ -18,6 +19,40 @@ import os
 from abc import ABC, abstractmethod
 
 from backend.data_processing.analysis.model_predictor import ModelPredictor
+
+
+# 建模相关常量（内联于本模块，避免引入外部配置依赖）
+# 分类问题要求目标变量恰好为 2 类（仅支持二分类）
+MIN_CLASSES_FOR_CLASSIFICATION = 2
+MAX_CLASSES_FOR_CLASSIFICATION = 2
+# 类别不平衡阈值：少数类占多数类比例低于该值时给出提示
+CLASS_IMBALANCE_THRESHOLD = 0.1
+
+
+def validate_binary_classification_target(y: pd.Series, target_name: str) -> None:
+    """
+    校验目标变量是否满足二分类要求（恰好 2 个类别）。
+
+    Args:
+        y: 目标变量序列
+        target_name: 目标列名
+
+    Raises:
+        ValueError: 当目标变量的取值种类不等于 2 时抛出（中文报错）
+    """
+    n_classes = pd.Series(y).nunique()
+    if n_classes < MIN_CLASSES_FOR_CLASSIFICATION:
+        raise ValueError(
+            f"目标变量“{target_name}”只有 {n_classes} 种取值，"
+            f"二分类要求目标变量恰好包含 {MAX_CLASSES_FOR_CLASSIFICATION} 个类别。"
+        )
+    if n_classes > MAX_CLASSES_FOR_CLASSIFICATION:
+        unique_values = sorted(pd.Series(y).unique())
+        raise ValueError(
+            f"目标变量“{target_name}”包含 {n_classes} 种取值：{unique_values}。"
+            f"当前工具仅支持二分类（恰好 {MAX_CLASSES_FOR_CLASSIFICATION} 个类别）。"
+            "请先对数据进行预处理，将目标变量转换为二分类变量。"
+        )
 
 
 class BaseModel(ABC):
@@ -73,6 +108,7 @@ def prepare_data(
     target_column: str,
     feature_columns: List[str],
     test_size: float = 0.3,
+    problem_type: str = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, List[str], List[str]]:
     """
     准备训练和测试数据
@@ -82,12 +118,21 @@ def prepare_data(
         target_column: 目标变量列名
         feature_columns: 特征列名列表
         test_size: 测试集比例
+        problem_type: 问题类型（'classification' 或 'regression'）。
+            默认 None 时保持原有行为不变；当为 'classification' 时执行二分类校验。
 
     Returns:
         训练特征、测试特征、训练标签、测试标签、分类特征列表、数值特征列表
+
+    Raises:
+        ValueError: 当 problem_type 为 'classification' 且目标变量不是二分类时抛出
     """
     X = df[feature_columns]
     y = df[target_column]
+
+    # 仅在明确指定为分类问题时校验二分类要求，避免影响其它调用方
+    if problem_type == "classification":
+        validate_binary_classification_target(y, target_column)
 
     if test_size > 0:
         X_train, X_test, y_train, y_test = train_test_split(
@@ -163,10 +208,14 @@ def evaluate_model(
 
     if problem_type == "classification":
         y_test_pred_proba = model.predict_proba(X_test)[:, 1]
+        # 使用 unique_labels 获取真实类别标签，其顺序与 confusion_matrix 的行/列一致，
+        # 从而保证混淆矩阵坐标轴标签与矩阵内容对应无误。
+        classes = list(unique_labels(y_test, y_test_pred))
         return {
             "test_roc_auc": roc_auc_score(y_test, y_test_pred_proba),
             "test_confusion_matrix": confusion_matrix(y_test, y_test_pred),
             "test_classification_report": classification_report(y_test, y_test_pred),
+            "classes": classes,
         }
     else:  # regression
         mse = mean_squared_error(y_test, y_test_pred)
@@ -197,8 +246,19 @@ def get_feature_importance(model: Any, preprocessor: ColumnTransformer) -> pd.Se
             index=feature_names,
         ).sort_values(ascending=False)
     elif hasattr(model, "coef_"):
+        coefficients = model.coef_
+        # 系数形状可能为 (1, n_features) 等多维，先展平为一维
+        if hasattr(coefficients, "ndim") and coefficients.ndim > 1:
+            coefficients = coefficients.ravel()
+        else:
+            coefficients = np.ravel(coefficients)
+        # 系数与特征名长度不一致时按较短长度对齐（截断），避免构造 Series 时崩溃
+        if len(coefficients) != len(feature_names):
+            min_len = min(len(coefficients), len(feature_names))
+            coefficients = coefficients[:min_len]
+            feature_names = feature_names[:min_len]
         feature_importance = pd.Series(
-            np.abs(model.coef_),
+            np.abs(coefficients),
             index=feature_names,
         ).sort_values(ascending=False)
     else:
@@ -237,7 +297,7 @@ def train_model(
         包含训练结果的字典
     """
     X_train, X_test, y_train, y_test, categorical_cols, numerical_cols = prepare_data(
-        df, target_column, feature_columns, test_size
+        df, target_column, feature_columns, test_size, problem_type
     )
 
     model_class = get_model_class(model_type)
@@ -332,6 +392,7 @@ def add_model_record(
     model_type: str,
     problem_type: str,
     model_results: Dict[str, Any],
+    model_id: str,
 ) -> pd.DataFrame:
     """
     添加模型记录
@@ -341,12 +402,14 @@ def add_model_record(
         model_type: 模型类型
         problem_type: 问题类型
         model_results: 模型结果
+        model_id: 模型唯一标识（对应 st.session_state.trained_models 的键，
+            用于后续按记录行精确取回并保存对应的模型对象）
 
     Returns:
         更新后的模型记录
     """
     new_record = {
-        "模型ID": f"Model_{len(model_records) + 1}",
+        "模型ID": model_id,
         "模型类型": model_type,
         "问题类型": "分类" if problem_type == "classification" else "回归",
         "训练时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -446,6 +509,10 @@ def initialize_session_state() -> Dict[str, Any]:
                 "最佳轮次",
             ]
         ),
+        # 存储每次训练得到的模型对象：{模型ID: pipeline}，用于按记录行精确保存
+        "trained_models": {},
+        # 目标/问题类型校验是否通过的标志，用于在校验未通过时禁用训练按钮
+        "problem_valid": True,
         "rf_n_trials": 100,
         "xgb_n_trials": 200,
         "predictor": ModelPredictor(),

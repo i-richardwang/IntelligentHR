@@ -173,7 +173,7 @@ def main():
                                 text=text_to_classify,
                                 context=st.session_state.context,
                             )
-                            result = workflow.classify_text(
+                            result = workflow.analyze_text(
                                 input_data, st.session_state.session_id
                             )
                         st.session_state.classification_results = result

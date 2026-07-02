@@ -10,6 +10,9 @@ from backend.data_processing.analysis.model_utils import (
     add_model_record,
     evaluate_model,
     get_feature_importance,
+    MIN_CLASSES_FOR_CLASSIFICATION,
+    MAX_CLASSES_FOR_CLASSIFICATION,
+    CLASS_IMBALANCE_THRESHOLD,
 )
 from backend.data_processing.analysis.shap_analysis import calculate_shap_values
 from backend.data_processing.analysis.visualization import (
@@ -163,25 +166,80 @@ def display_column_selection() -> None:
 
 
 def validate_problem_type() -> None:
-    """验证问题类型"""
+    """
+    验证问题类型与目标变量是否匹配，并将校验结果记录到
+    st.session_state.problem_valid（用于禁用训练按钮）。
+
+    分类：要求目标变量恰好为 2 类，并检测类别不平衡；
+    回归：要求目标变量为数值类型，并展示取值范围/均值/标准差。
+    """
+    target_col = st.session_state.target_column
+    # 目标列尚未选择时不做校验，保持默认通过状态
+    if target_col is None or target_col not in st.session_state.df.columns:
+        st.session_state.problem_valid = True
+        return
+
+    target_data = st.session_state.df[target_col]
+    st.session_state.problem_valid = True
+
     if st.session_state.problem_type == "classification":
-        if st.session_state.df[st.session_state.target_column].dtype in [
-            "int64",
-            "float64",
-        ]:
-            unique_values = st.session_state.df[
-                st.session_state.target_column
-            ].nunique()
-            if unique_values > 10:
+        n_classes = target_data.nunique()
+
+        if n_classes < MIN_CLASSES_FOR_CLASSIFICATION:
+            st.error(
+                f"❌ 目标变量“{target_col}”只有 {n_classes} 种取值，"
+                f"二分类要求目标变量恰好包含 {MAX_CLASSES_FOR_CLASSIFICATION} 个类别。"
+            )
+            st.session_state.problem_valid = False
+        elif n_classes > MAX_CLASSES_FOR_CLASSIFICATION:
+            unique_values = sorted(target_data.unique())[:10]  # 仅展示前 10 个取值
+            st.error(
+                f"❌ 目标变量“{target_col}”包含 {n_classes} 种取值"
+                f"（例如：{unique_values}{'...' if n_classes > 10 else ''}）。\n\n"
+                f"**当前工具仅支持二分类（恰好 {MAX_CLASSES_FOR_CLASSIFICATION} 个类别）。**\n\n"
+                "💡 建议：\n"
+                "- 将目标变量改造为二分类（如“是/否”“0/1”“True/False”）\n"
+                "- 将多个类别合并为两组\n"
+                "- 或改用支持多分类的工具"
+            )
+            st.session_state.problem_valid = False
+        else:
+            # 恰好 2 类，展示成功信息
+            class_values = sorted(target_data.unique())
+            class_counts = target_data.value_counts()
+            st.success(
+                f"✅ 已检测到二分类目标：**{class_values[0]}**（{class_counts[class_values[0]]}）"
+                f" vs **{class_values[1]}**（{class_counts[class_values[1]]}）"
+            )
+
+            # 类别不平衡检测：少数类占比过低时提示
+            class_ratio = class_counts.min() / class_counts.max()
+            if class_ratio < CLASS_IMBALANCE_THRESHOLD:
                 st.warning(
-                    "目标变量看起来像是连续值。您可能需要选择回归问题而不是分类问题。"
+                    f"⚠️ 检测到类别不平衡（少数类占比：{class_ratio:.2%}）。"
+                    "可考虑使用 SMOTE 过采样、类别权重（class weights）或分层抽样等方法。"
                 )
+
+        # 对疑似连续数值的目标变量额外提示
+        if target_data.dtype in ["int64", "float64"] and n_classes > 10:
+            st.warning(
+                "⚠️ 目标变量看起来像是连续数值。您可能需要选择回归问题而不是分类问题。"
+            )
+
     else:  # regression
-        if st.session_state.df[st.session_state.target_column].dtype not in [
-            "int64",
-            "float64",
-        ]:
-            st.warning("目标变量不是数值类型。回归问题需要数值类型的目标变量。")
+        if target_data.dtype not in ["int64", "float64"]:
+            st.error(
+                f"❌ 目标变量“{target_col}”不是数值类型（当前类型：{target_data.dtype}）。"
+                "回归问题需要数值类型的目标变量。"
+            )
+            st.session_state.problem_valid = False
+        else:
+            # 展示回归目标变量的统计信息
+            st.success(
+                f"✅ 回归目标变量校验通过："
+                f"取值范围 [{target_data.min():.2f}, {target_data.max():.2f}]，"
+                f"均值：{target_data.mean():.2f}，标准差：{target_data.std():.2f}"
+            )
 
 
 def display_model_training_and_advanced_settings() -> None:
@@ -197,7 +255,12 @@ def display_model_training_and_advanced_settings() -> None:
             display_preprocessing_settings()
             display_model_parameters_settings()
 
-            if st.button("开始训练模型"):
+            # 目标/问题类型校验未通过时禁用训练按钮（默认 True，不影响正常流程）
+            training_disabled = not st.session_state.get("problem_valid", True)
+            if training_disabled:
+                st.warning("请先解决目标变量/问题类型的校验问题，然后再开始训练。")
+
+            if st.button("开始训练模型", disabled=training_disabled):
                 train_and_evaluate_model()
 
 
@@ -232,11 +295,26 @@ def train_and_evaluate_model() -> None:
                 numeric_preprocessor=st.session_state.numeric_preprocessor,
                 categorical_preprocessor=st.session_state.categorical_preprocessor,
             )
+
+            # 生成本次训练的唯一模型ID（模型类型 + 精确到微秒的时间戳，保证唯一且可对应模型对象）
+            model_id = (
+                f"{st.session_state.model_type}_"
+                f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+            )
+
+            # 将本次训练得到的模型对象按 model_id 存入 trained_models，供后续按行精确保存
+            if "trained_models" not in st.session_state:
+                st.session_state.trained_models = {}
+            st.session_state.trained_models[model_id] = (
+                st.session_state.model_results["model"]
+            )
+
             st.session_state.model_records = add_model_record(
                 st.session_state.model_records,
                 st.session_state.model_type,
                 st.session_state.problem_type,
                 st.session_state.model_results,
+                model_id,
             )
             display_training_success_message()
 
@@ -377,27 +455,29 @@ def save_selected_models(edited_df: pd.DataFrame) -> None:
     """
     models_to_save = edited_df[edited_df["保存"]]
     if not models_to_save.empty:
+        trained_models = st.session_state.get("trained_models", {})
         for _, row in models_to_save.iterrows():
+            model_id = row["模型ID"]
             model_type = row["模型类型"]
             problem_type = (
                 "classification" if row["问题类型"] == "分类" else "regression"
             )
             timestamp = datetime.strptime(row["训练时间"], "%Y-%m-%d %H:%M:%S")
-            if (
-                st.session_state.model_results
-                and st.session_state.model_results["model"]
-            ):
+
+            # 按每一行的模型ID从 trained_models 取回对应的模型对象再保存，
+            # 避免所有勾选行都保存成最后训练的那个模型
+            if model_id in trained_models:
                 file_path = save_model(
-                    st.session_state.model_results["model"],
+                    trained_models[model_id],
                     model_type,
                     problem_type,
                     timestamp,
                 )
                 st.success(
-                    f"模型 {model_type} ({problem_type}) 已成功保存到 {file_path}"
+                    f"模型 {model_id}（{model_type}）已成功保存到 {file_path}"
                 )
             else:
-                st.warning(f"无法保存模型 {model_type}，模型对象不存在。")
+                st.warning(f"无法保存模型 {model_id}，内存中不存在该模型对象。")
 
 
 def display_results() -> None:
@@ -506,7 +586,9 @@ def display_confusion_matrix() -> None:
     """显示混淆矩阵"""
     st.markdown("### 混淆矩阵")
     cm = st.session_state.model_results["test_confusion_matrix"]
-    fig = create_confusion_matrix_plot(cm)
+    # 传入真实类别标签以正确渲染坐标轴；取不到时函数内部回退到默认 0/1
+    class_labels = st.session_state.model_results.get("classes")
+    fig = create_confusion_matrix_plot(cm, class_labels)
     st.plotly_chart(fig)
 
     with st.expander("混淆矩阵解读", expanded=False):

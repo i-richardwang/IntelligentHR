@@ -4,12 +4,16 @@ import numpy as np
 from typing import List, Dict, Any
 
 
-def create_confusion_matrix_plot(cm: np.ndarray) -> go.Figure:
+def create_confusion_matrix_plot(
+    cm: np.ndarray, class_labels: List[Any] = None
+) -> go.Figure:
     """
     创建混淆矩阵的热力图。
 
     Args:
         cm (np.ndarray): 混淆矩阵
+        class_labels (List[Any]): 真实类别标签（按混淆矩阵的行/列顺序排列），
+            用于渲染坐标轴。为 None 时回退到默认的 0/1 标签。
 
     Returns:
         go.Figure: Plotly图形对象
@@ -17,11 +21,20 @@ def create_confusion_matrix_plot(cm: np.ndarray) -> go.Figure:
     cm_sum = np.sum(cm)
     cm_percentages = cm / cm_sum * 100
 
+    # 根据真实类别标签动态生成坐标轴文案，标签不足两类时回退到默认 0/1
+    if class_labels is not None and len(list(class_labels)) == 2:
+        labels = list(class_labels)
+        x_labels = [f"预测: {labels[0]}", f"预测: {labels[1]}"]
+        y_labels = [f"实际: {labels[0]}", f"实际: {labels[1]}"]
+    else:
+        x_labels = ["预测: 0", "预测: 1"]
+        y_labels = ["实际: 0", "实际: 1"]
+
     fig = go.Figure(
         data=go.Heatmap(
             z=cm_percentages,
-            x=["预测: 0", "预测: 1"],
-            y=["实际: 0", "实际: 1"],
+            x=x_labels,
+            y=y_labels,
             hoverongaps=False,
             colorscale="Blues",
             text=[

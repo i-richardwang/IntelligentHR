@@ -134,5 +134,16 @@ class LinearRegressionModel(BaseModel):
         """
         linear_model = self.model.named_steps["regressor"]
         feature_names = self.model.named_steps["preprocessor"].get_feature_names_out()
-        importance = np.abs(linear_model.coef_)
+        coefficients = linear_model.coef_
+        # 系数可能是 (1, n_features) 等多维形状，先展平为一维
+        if hasattr(coefficients, "ndim") and coefficients.ndim > 1:
+            coefficients = coefficients.ravel()
+        else:
+            coefficients = np.ravel(coefficients)
+        # 系数与特征名长度不一致时按较短长度对齐（截断），避免构造 Series 时崩溃
+        if len(coefficients) != len(feature_names):
+            min_len = min(len(coefficients), len(feature_names))
+            coefficients = coefficients[:min_len]
+            feature_names = feature_names[:min_len]
+        importance = np.abs(coefficients)
         return pd.Series(importance, index=feature_names).sort_values(ascending=False)

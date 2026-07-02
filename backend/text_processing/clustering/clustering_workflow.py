@@ -340,7 +340,30 @@ def classify_texts(
         except Exception as e:
             logger.error(f"Error processing batch in session {session_id}: {str(e)}")
 
+    # 确保生成了分类结果，避免空结果导致后续合并产生全 NaN
+    if not classification_results:
+        raise ValueError("未生成任何分类结果")
+
     df_classifications = pd.DataFrame(classification_results)
+
+    # 兼容大模型返回结果中可能出现的不同 ID 列名（id / unique_id / ID / Id）
+    possible_id_columns = ["id", id_column, "ID", "Id"]
+    id_col_in_result = None
+    for col in possible_id_columns:
+        if col in df_classifications.columns:
+            id_col_in_result = col
+            break
+
+    if id_col_in_result is None:
+        raise ValueError(
+            f"分类结果缺少 ID 字段，实际返回列为：{list(df_classifications.columns)}"
+        )
+
+    # 统一重命名为 'id'，保证下方按 unique_id ↔ id 的合并稳定
+    if id_col_in_result != "id":
+        df_classifications = df_classifications.rename(
+            columns={id_col_in_result: "id"}
+        )
 
     if is_multi_label:
         # 多标签分类结果处理
