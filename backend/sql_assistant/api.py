@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from functools import partial
 
 from langgraph.checkpoint.memory import MemorySaver
-from backend.sql_assistant.graph.assistant_graph import run_sql_assistant
+from backend.sql_assistant.async_executor import run_sql_assistant_async
 from backend.sql_assistant.utils.user_mapper import UserMapper
 from langchain_core.globals import set_llm_cache
 from langchain_community.cache import SQLiteCache
@@ -63,8 +63,8 @@ async def process_query(request: Dict[str, Any] = Body(...)) -> Dict[str, str]:
                     detail=f"抱歉，您暂时没有访问权限。请联系数据团队为您开通相关权限。",
                 )
 
-        # 运行SQL助手
-        result = run_sql_assistant(
+        # 运行SQL助手（在线程池中执行，避免阻塞事件循环）
+        result = await run_sql_assistant_async(
             query=text,
             thread_id=session_id,
             checkpoint_saver=checkpoint_saver,

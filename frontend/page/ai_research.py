@@ -140,6 +140,8 @@ def display_research_settings():
 
         if st.button("开始研究"):
             if query:
+                # 每次运行前清空上一轮的进度日志，避免多次研究的输出累积
+                st.session_state.verbose_output = ""
                 with st.spinner("正在进行研究，请稍候..."):
                     # 创建一个 expander 来包含详细输出
                     verbose_expander = st.expander("显示研究进度", expanded=True)
@@ -153,23 +155,30 @@ def display_research_settings():
                         st.session_state.verbose_output += message + "\n"
                         verbose_container.text(st.session_state.verbose_output)
 
-                    # 创建 AIResearcher 实例，传入回调函数和新的配置参数
-                    researcher = AIResearcher(
-                        query=query,
-                        report_type=report_type,
-                        tone=Tone(tone),
-                        verbose=True,
-                        verbose_callback=update_verbose,
-                        max_iterations=max_iterations,
-                        max_subtopics=max_subtopics,
-                        max_search_results_per_query=max_search_results_per_query,
-                    )
+                    try:
+                        # 创建 AIResearcher 实例，传入回调函数和新的配置参数
+                        researcher = AIResearcher(
+                            query=query,
+                            report_type=report_type,
+                            tone=Tone(tone),
+                            verbose=True,
+                            verbose_callback=update_verbose,
+                            max_iterations=max_iterations,
+                            max_subtopics=max_subtopics,
+                            max_search_results_per_query=max_search_results_per_query,
+                        )
 
-                    # 运行研究过程
-                    report = asyncio.run(researcher.run())
+                        # 运行研究过程
+                        report = asyncio.run(researcher.run())
 
-                    # 存储生成的报告
-                    st.session_state.generated_report = report
+                        # 存储生成的报告
+                        st.session_state.generated_report = report
+                    except ValueError as e:
+                        st.error(f"参数错误：{str(e)}")
+                        return
+                    except Exception as e:
+                        st.error(f"研究过程中发生错误：{str(e)}，请稍后重试或联系数据团队。")
+                        return
 
                 st.success("研究完成！")
 

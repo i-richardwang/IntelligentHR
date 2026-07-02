@@ -4,6 +4,7 @@
 """
 
 import logging
+from datetime import datetime
 from pydantic import BaseModel, Field
 from langchain_core.messages import AIMessage
 
@@ -100,6 +101,9 @@ RESULT_GENERATION_USER_PROMPT = """请根据以下信息生成查询结果描述
 3. 业务术语说明：
 {term_descriptions}
 
+4. 当前日期：
+{current_date}
+
 请生成一段清晰、专业的描述，向用户说明查询结果。"""
 
 
@@ -151,7 +155,8 @@ def result_generation_node(state: SQLAssistantState) -> dict:
                 state.get("domain_term_mappings", {})
             ),
             "data_source": state.get("matched_tables", [{}])[0].get("table_name", "未知数据源"),
-            "sql_query": generated_sql.get("sql_query", "未知SQL查询")
+            "sql_query": generated_sql.get("sql_query", "未知SQL查询"),
+            "current_date": datetime.now().strftime("%Y-%m-%d")
         }
 
         # 创建并执行结果生成链

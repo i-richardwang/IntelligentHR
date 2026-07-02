@@ -57,7 +57,6 @@ def route_after_error_analysis(state: SQLAssistantState):
         str: 下一个节点的标识符
     """
     error_analysis_result = state.get("error_analysis_result", {})
-    error_analysis_result = state.get("error_analysis_result", {})
     if error_analysis_result.get("is_sql_fixable", False):
         state["generated_sql"] = {"sql_query": error_analysis_result["fixed_sql"]}
         return "sql_execution"

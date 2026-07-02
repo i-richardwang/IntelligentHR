@@ -5,6 +5,7 @@ SQL生成节点模块。
 
 from pydantic import BaseModel, Field
 from typing import Optional
+from datetime import datetime
 import logging
 
 from backend.sql_assistant.states.assistant_state import SQLAssistantState
@@ -56,6 +57,9 @@ SQL_GENERATION_USER_PROMPT = """请根据以下信息生成SQL查询语句：
 3. 业务术语解释(如果存在)：
 {term_descriptions}
 
+4. 当前日期（当查询涉及相对时间时，请以此为基准计算具体日期范围）：
+{current_date}
+
 请生成标准的SQL查询语句，并以指定的JSON格式输出结果。"""
 
 
@@ -84,7 +88,8 @@ def sql_generation_node(state: SQLAssistantState) -> dict:
             "table_structures": format_table_structures(state["table_structures"]),
             "term_descriptions": format_term_descriptions(
                 state.get("domain_term_mappings", {})
-            )
+            ),
+            "current_date": datetime.now().strftime("%Y-%m-%d")
         }
 
         generation_chain = create_sql_generation_chain()
