@@ -69,7 +69,7 @@ class EntityVerificationWorkflow:
     async def run(
         self, user_query: str, session_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        user_query = str(user_query)
+        user_query = str(user_query).strip()
 
         if session_id is None:
             session_id = str(uuid4())
@@ -122,6 +122,7 @@ class EntityVerificationWorkflow:
                 result["search_results"] = None
                 result["identified_entity_name"] = user_query
                 result["status"] = ProcessingStatus.IDENTIFIED
+                result["is_identified"] = True
 
             # Vector retrieval and verification
             if (
@@ -245,13 +246,13 @@ class EntityVerificationWorkflow:
         elif result["status"] == ProcessingStatus.ERROR:
             result["final_entity_name"] = "处理错误"
         elif result["status"] == ProcessingStatus.VERIFIED:
-            if "standard_name" in result:
-                result["final_entity_name"] = result["standard_name"]
-            else:
-                result["final_entity_name"] = (
-                    result.get("retrieved_entity_name")
-                    or result["identified_entity_name"]
-                )
+            # 依次回退：标准名 → 检索到的名称 → 识别出的名称，
+            # 避免命中的数据库记录标准名为空时最终名称为空
+            result["final_entity_name"] = (
+                result.get("standard_name")
+                or result.get("retrieved_entity_name")
+                or result["identified_entity_name"]
+            )
         elif result["status"] == ProcessingStatus.IDENTIFIED:
             result["final_entity_name"] = result["identified_entity_name"]
         else:

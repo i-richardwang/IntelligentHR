@@ -412,6 +412,11 @@ async def process_batch(
         result_df = pd.DataFrame(current_results)
         result_df = result_df.sort_values("original_index").reset_index(drop=True)
         result_df = result_df.drop("original_index", axis=1)
+        # 将状态枚举转换为中文值，避免导出的 CSV 与结果表格显示 ProcessingStatus.XXX
+        if "status" in result_df.columns:
+            result_df["status"] = result_df["status"].apply(
+                lambda s: s.value if isinstance(s, ProcessingStatus) else s
+            )
         result_df.to_csv(temp_file_path, index=False, encoding="utf-8-sig")
         st.session_state.batch_results_df = result_df
 
@@ -459,7 +464,7 @@ def display_batch_results(result_df: pd.DataFrame, entity_type: str):
     stats_df = pd.DataFrame(
         {
             "类别": [status.value for status in ProcessingStatus],
-            "数量": [status_counts.get(status, 0) for status in ProcessingStatus],
+            "数量": [status_counts.get(status.value, 0) for status in ProcessingStatus],
         }
     )
     stats_df["占比"] = (stats_df["数量"] / len(result_df) * 100).round(2).astype(
@@ -479,15 +484,15 @@ def display_batch_results(result_df: pd.DataFrame, entity_type: str):
 
     # 提供建议
     if (
-        ProcessingStatus.UNVERIFIED in status_counts
-        or ProcessingStatus.UNIDENTIFIED in status_counts
+        ProcessingStatus.UNVERIFIED.value in status_counts
+        or ProcessingStatus.UNIDENTIFIED.value in status_counts
     ):
         st.warning(
-            f"有 {status_counts.get(ProcessingStatus.UNVERIFIED, 0) + status_counts.get(ProcessingStatus.UNIDENTIFIED, 0)} 个实体未能完全验证。建议手动检查这些结果。"
+            f"有 {status_counts.get(ProcessingStatus.UNVERIFIED.value, 0) + status_counts.get(ProcessingStatus.UNIDENTIFIED.value, 0)} 个实体未能完全验证。建议手动检查这些结果。"
         )
-    if ProcessingStatus.VALID_INPUT in status_counts:
+    if ProcessingStatus.VALID_INPUT.value in status_counts:
         st.info(
-            f"有 {status_counts.get(ProcessingStatus.VALID_INPUT, 0)} 个实体仅进行了输入验证。如需更高准确度，请考虑启用完整识别流程。"
+            f"有 {status_counts.get(ProcessingStatus.VALID_INPUT.value, 0)} 个实体仅进行了输入验证。如需更高准确度，请考虑启用完整识别流程。"
         )
 
     # 提供下载选项
