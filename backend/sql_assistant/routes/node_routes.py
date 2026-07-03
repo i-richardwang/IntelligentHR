@@ -63,11 +63,29 @@ def route_after_error_analysis(state: SQLAssistantState):
     return END
 
 
+def route_after_data_source(state: SQLAssistantState):
+    """数据源识别后的路由函数
+
+    根据是否找到相关数据表决定下一步操作。
+    未找到相关表则结束流程（已由节点给出友好提示）；
+    否则继续进行表结构分析。
+
+    Args:
+        state: 当前状态对象
+
+    Returns:
+        str: 下一个节点的标识符
+    """
+    if not state.get("has_relevant_tables", False):
+        return END
+    return "table_structure_analysis"
+
+
 def route_after_feasibility_check(state: SQLAssistantState):
     """可行性检查后的路由函数
 
     根据可行性检查结果决定下一步操作。
-    如果查询可行则生成SQL，否则结束处理。
+    如果查询可行则进入查询示例检索（再生成SQL），否则结束处理。
 
     Args:
         state: 当前状态对象
@@ -78,7 +96,7 @@ def route_after_feasibility_check(state: SQLAssistantState):
     feasibility_check = state.get("feasibility_check", {})
     if not feasibility_check or not feasibility_check.get("is_feasible"):
         return END
-    return "sql_generation"
+    return "query_example_retrieval"
 
 
 def route_after_permission_check(state: SQLAssistantState):

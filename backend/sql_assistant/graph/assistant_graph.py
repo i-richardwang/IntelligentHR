@@ -22,6 +22,7 @@ from backend.sql_assistant.nodes.data_source_node import data_source_identificat
 from backend.sql_assistant.nodes.table_structure_node import (
     table_structure_analysis_node,
 )
+from backend.sql_assistant.nodes.query_example_node import query_example_node
 from backend.sql_assistant.nodes.sql_generation_node import sql_generation_node
 from backend.sql_assistant.nodes.permission_control_node import permission_control_node
 from backend.sql_assistant.nodes.sql_execution_node import sql_execution_node
@@ -30,6 +31,7 @@ from backend.sql_assistant.nodes.result_generation_node import result_generation
 from backend.sql_assistant.nodes.feasibility_check_node import feasibility_check_node
 from backend.sql_assistant.routes.node_routes import (
     route_after_intent,
+    route_after_data_source,
     route_after_execution,
     route_after_error_analysis,
     route_after_feasibility_check,
@@ -81,6 +83,7 @@ def build_sql_assistant_graph() -> StateGraph:
     )
     graph_builder.add_node("table_structure_analysis", table_structure_analysis_node)
     graph_builder.add_node("feasibility_checking", feasibility_check_node)
+    graph_builder.add_node("query_example_retrieval", query_example_node)
     graph_builder.add_node("sql_generation", sql_generation_node)
     # 添加权限控制节点
     graph_builder.add_node("permission_control", permission_control_node)
@@ -95,10 +98,17 @@ def build_sql_assistant_graph() -> StateGraph:
         {"keyword_extraction": "keyword_extraction", END: END},
     )
 
+    # 数据源识别后：无相关表则结束，否则继续表结构分析（相关性门控）
+    graph_builder.add_conditional_edges(
+        "data_source_identification",
+        route_after_data_source,
+        {"table_structure_analysis": "table_structure_analysis", END: END},
+    )
+
     graph_builder.add_conditional_edges(
         "feasibility_checking",
         route_after_feasibility_check,
-        {"sql_generation": "sql_generation", END: END},
+        {"query_example_retrieval": "query_example_retrieval", END: END},
     )
 
     graph_builder.add_conditional_edges(
@@ -126,8 +136,8 @@ def build_sql_assistant_graph() -> StateGraph:
     graph_builder.add_edge("keyword_extraction", "domain_term_mapping")
     graph_builder.add_edge("domain_term_mapping", "query_rewrite")
     graph_builder.add_edge("query_rewrite", "data_source_identification")
-    graph_builder.add_edge("data_source_identification", "table_structure_analysis")
     graph_builder.add_edge("table_structure_analysis", "feasibility_checking")
+    graph_builder.add_edge("query_example_retrieval", "sql_generation")
     graph_builder.add_edge("sql_generation", "permission_control")
     graph_builder.add_edge("result_generation", END)
 

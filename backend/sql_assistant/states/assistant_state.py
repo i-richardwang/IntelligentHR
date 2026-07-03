@@ -29,6 +29,10 @@ class SQLAssistantState(TypedDict):
     rewritten_query: Optional[str]
     # 匹配的数据表信息
     matched_tables: List[Dict[str, Any]]
+    # 是否存在与查询相关的数据表（相关性门控标志）
+    has_relevant_tables: bool
+    # 检索到的相似查询示例（少样本）
+    query_examples: List[Dict[str, str]]
     # 数据表结构信息
     table_structures: List[Dict[str, Any]]
     # 生成的SQL信息
