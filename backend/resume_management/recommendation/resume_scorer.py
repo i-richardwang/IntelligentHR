@@ -85,7 +85,9 @@ class ResumeScorer:
                 continue
 
             search_params = {"metric_type": "IP", "params": {"nprobe": 10}}
-            limit = max(collection.num_entities, 1)
+            # Milvus 的 topk(limit) 存在硬上限（自建 Milvus 为 16384），
+            # 集合实体数超过该上限时直接传入会导致 search 抛错，故封顶
+            limit = min(max(collection.num_entities, 1), 16384)
 
             print(
                 f"集合: {collection.name} 的实体数量: {collection.num_entities} limit: {limit}"

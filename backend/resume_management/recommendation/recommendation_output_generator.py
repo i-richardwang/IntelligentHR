@@ -57,7 +57,14 @@ class RecommendationOutputGenerator:
         resume_details = await asyncio.gather(*tasks)
         resume_details = [detail for detail in resume_details if detail is not None]
 
-        resume_details_df = pd.DataFrame(resume_details)
+        if not resume_details:
+            # 详情全部获取失败时，pd.DataFrame([]) 会产生无列 DataFrame，
+            # 导致后续按 resume_id 合并时抛 KeyError；此处显式构造带列名的空表
+            resume_details_df = pd.DataFrame(
+                columns=["resume_id", "characteristics", "experience", "skills_overview"]
+            )
+        else:
+            resume_details_df = pd.DataFrame(resume_details)
 
         merged_df = pd.merge(
             ranked_resume_scores, resume_details_df, on="resume_id", how="left"
