@@ -5,9 +5,18 @@ from pydantic import BaseModel, Field
 from utils.llm_tools import init_language_model, LanguageModelChain
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
-)
+_language_model = None
+
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("SMART_LLM_PROVIDER"),
+            model_name=os.getenv("SMART_LLM_MODEL"),
+        )
+    return _language_model
 
 
 class InputValidation(BaseModel):
@@ -85,21 +94,43 @@ human_message_verification = """
 搜索结果：
 {search_results}"""
 
-# 创建处理链
-input_validator = LanguageModelChain(
-    InputValidation, system_message_validation, human_message_validation, language_model
-)()
+# 处理链延迟构建（首次调用时构建并缓存），避免导入期就要求 LLM 环境变量
+_input_validator = None
+_search_analysis = None
+_name_verifier = None
 
-search_analysis = LanguageModelChain(
-    EntityRecognition,
-    system_message_search_analysis,
-    human_message_search_analysis,
-    language_model,
-)()
 
-name_verifier = LanguageModelChain(
-    EntityVerification,
-    system_message_verification,
-    human_message_verification,
-    language_model,
-)()
+def get_input_validator():
+    global _input_validator
+    if _input_validator is None:
+        _input_validator = LanguageModelChain(
+            InputValidation,
+            system_message_validation,
+            human_message_validation,
+            get_language_model(),
+        )()
+    return _input_validator
+
+
+def get_search_analysis():
+    global _search_analysis
+    if _search_analysis is None:
+        _search_analysis = LanguageModelChain(
+            EntityRecognition,
+            system_message_search_analysis,
+            human_message_search_analysis,
+            get_language_model(),
+        )()
+    return _search_analysis
+
+
+def get_name_verifier():
+    global _name_verifier
+    if _name_verifier is None:
+        _name_verifier = LanguageModelChain(
+            EntityVerification,
+            system_message_verification,
+            human_message_verification,
+            get_language_model(),
+        )()
+    return _name_verifier

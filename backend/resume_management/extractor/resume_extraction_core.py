@@ -40,9 +40,18 @@ from backend.resume_management.storage.resume_sql_storage import (
 logging.basicConfig(level=logging.INFO)
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("FAST_LLM_PROVIDER"), model_name=os.getenv("FAST_LLM_MODEL")
-)
+_language_model = None
+
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("FAST_LLM_PROVIDER"),
+            model_name=os.getenv("FAST_LLM_MODEL"),
+        )
+    return _language_model
 
 
 async def extract_personal_education(
@@ -63,7 +72,7 @@ async def extract_personal_education(
         ResumePersonalEducation,
         PERSONAL_EDUCATION_SYSTEM_MESSAGE,
         PERSONAL_EDUCATION_HUMAN_MESSAGE,
-        language_model,
+        get_language_model(),
     )()
     return await extractor.ainvoke(
         {"raw_resume_content": resume_content}, config=langfuse_config
@@ -86,7 +95,7 @@ async def extract_work_project(resume_content: str, session_id: str) -> Dict[str
         ResumeWorkProject,
         WORK_PROJECT_SYSTEM_MESSAGE,
         WORK_PROJECT_HUMAN_MESSAGE,
-        language_model,
+        get_language_model(),
     )()
     return await extractor.ainvoke(
         {"raw_resume_content": resume_content}, config=langfuse_config
@@ -111,7 +120,7 @@ async def generate_resume_summary(
         Summary,
         RESUME_SUMMARY_SYSTEM_MESSAGE,
         RESUME_SUMMARY_HUMAN_MESSAGE,
-        language_model,
+        get_language_model(),
     )()
     return await summarizer.ainvoke(
         {"raw_resume_content": resume_content}, config=langfuse_config

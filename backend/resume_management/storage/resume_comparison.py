@@ -5,9 +5,18 @@ from utils.llm_tools import LanguageModelChain, init_language_model
 from utils.langfuse_tools import get_langfuse_config
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
-)
+_language_model = None
+
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("SMART_LLM_PROVIDER"),
+            model_name=os.getenv("SMART_LLM_MODEL"),
+        )
+    return _language_model
 
 
 class ResumeComparisonResult(BaseModel):
@@ -62,9 +71,19 @@ end of existing resume
 请提供你的分析结果,包括是否为同一候选人,哪一份是最新版本(如果适用),以及详细的解释。
 """
 
-resume_comparison_chain = LanguageModelChain(
-    ResumeComparisonResult, SYSTEM_MESSAGE, HUMAN_MESSAGE_TEMPLATE, language_model
-)()
+_resume_comparison_chain = None
+
+
+def get_resume_comparison_chain():
+    global _resume_comparison_chain
+    if _resume_comparison_chain is None:
+        _resume_comparison_chain = LanguageModelChain(
+            ResumeComparisonResult,
+            SYSTEM_MESSAGE,
+            HUMAN_MESSAGE_TEMPLATE,
+            get_language_model(),
+        )()
+    return _resume_comparison_chain
 
 
 def create_langfuse_config(session_id: str, step: str) -> dict:
@@ -80,7 +99,7 @@ async def compare_resumes(
 ) -> ResumeComparisonResult:
     langfuse_config = create_langfuse_config(session_id, "compare_resumes")
 
-    result = await resume_comparison_chain.ainvoke(
+    result = await get_resume_comparison_chain().ainvoke(
         {"uploaded_resume": uploaded_resume, "existing_resume": existing_resume},
         config=langfuse_config,
     )

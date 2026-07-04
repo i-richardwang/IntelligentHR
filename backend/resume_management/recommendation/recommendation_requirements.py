@@ -10,9 +10,18 @@ import os
 import asyncio
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
-)
+_language_model = None
+
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("SMART_LLM_PROVIDER"),
+            model_name=os.getenv("SMART_LLM_MODEL"),
+        )
+    return _language_model
 
 
 class RecommendationRequirements:
@@ -59,9 +68,19 @@ class RecommendationRequirements:
     请评估当前信息，并按照指示生成适当的响应。如果需要更多信息，请简明扼要地提出所有必要的问题。如果信息充足，请生成一个自然、流畅的查询描述。
     """
 
-    query_refiner = LanguageModelChain(
-        QueryRefinement, system_message, human_message_template, language_model
-    )()
+    _query_refiner = None
+
+    @classmethod
+    def _get_query_refiner(cls):
+        """延迟构建并缓存查询完善链，避免类定义（import）期就要求 LLM 环境变量。"""
+        if cls._query_refiner is None:
+            cls._query_refiner = LanguageModelChain(
+                QueryRefinement,
+                cls.system_message,
+                cls.human_message_template,
+                get_language_model(),
+            )()
+        return cls._query_refiner
 
     def create_langfuse_config(self, session_id: str, step: str) -> dict:
         """构造该步骤的 Langfuse 监控 config，供 chain.invoke(config=...) 使用。"""
@@ -96,7 +115,7 @@ class RecommendationRequirements:
         query_history_for_model = self.query_history[:-1]
 
         langfuse_config = self.create_langfuse_config(session_id, "query_refinement")
-        refinement_result = await self.query_refiner.ainvoke(
+        refinement_result = await self._get_query_refiner().ainvoke(
             {
                 "query_history": "\n".join(query_history_for_model),
                 "latest_response": latest_response,

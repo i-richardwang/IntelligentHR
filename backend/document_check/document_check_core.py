@@ -28,17 +28,33 @@ class DocumentCheck(BaseModel):
 
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
-)
+_language_model = None
 
-# 创建大模型调用链
-document_checker = LanguageModelChain(
-    DocumentCheck,
-    DOCUMENT_CHECK_SYSTEM_MESSAGE,
-    DOCUMENT_CHECK_HUMAN_MESSAGE,
-    language_model,
-)()
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("SMART_LLM_PROVIDER"),
+            model_name=os.getenv("SMART_LLM_MODEL"),
+        )
+    return _language_model
+
+# 大模型调用链延迟构建（首次调用时构建并缓存），避免导入期就要求 LLM 环境变量
+_document_checker = None
+
+
+def get_document_checker():
+    global _document_checker
+    if _document_checker is None:
+        _document_checker = LanguageModelChain(
+            DocumentCheck,
+            DOCUMENT_CHECK_SYSTEM_MESSAGE,
+            DOCUMENT_CHECK_HUMAN_MESSAGE,
+            get_language_model(),
+        )()
+    return _document_checker
 
 
 def create_langfuse_config(session_id: str, step: str) -> dict:
@@ -61,7 +77,7 @@ async def check_page(
         ]
     )
 
-    result = await document_checker.ainvoke(
+    result = await get_document_checker().ainvoke(
         {"document_content": formatted_content},
         config=langfuse_config,
     )

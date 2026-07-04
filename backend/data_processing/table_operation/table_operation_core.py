@@ -29,9 +29,18 @@ logger = logging.getLogger(__name__)
 langfuse_client = get_client()
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
-)
+_language_model = None
+
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("SMART_LLM_PROVIDER"),
+            model_name=os.getenv("SMART_LLM_MODEL"),
+        )
+    return _language_model
 
 # 系统消息
 SYSTEM_MESSAGE = """
@@ -167,7 +176,7 @@ def create_dataframe_assistant():
         配置好的语言模型链。
     """
     assistant_chain = LanguageModelChain(
-        AssistantResponse, SYSTEM_MESSAGE, HUMAN_MESSAGE_TEMPLATE, language_model
+        AssistantResponse, SYSTEM_MESSAGE, HUMAN_MESSAGE_TEMPLATE, get_language_model()
     )()
 
     return assistant_chain

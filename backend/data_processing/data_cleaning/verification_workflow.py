@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 
 from backend.data_processing.data_cleaning.search_tools import SearchTools
 from backend.data_processing.data_cleaning.verification_models import (
-    input_validator,
-    search_analysis,
-    name_verifier,
+    get_input_validator,
+    get_search_analysis,
+    get_name_verifier,
 )
 from backend.data_processing.data_cleaning.data_processor import (
     initialize_vector_store,
@@ -175,7 +175,7 @@ class EntityVerificationWorkflow:
     async def _validate_input(
         self, user_query: str, langfuse_config: dict
     ) -> bool:
-        validation_result = await input_validator.ainvoke(
+        validation_result = await get_input_validator().ainvoke(
             {
                 "user_query": user_query,
                 "entity_type": self.entity_type,
@@ -196,7 +196,7 @@ class EntityVerificationWorkflow:
     async def _analyze_search_results(
         self, user_query: str, search_results: str, langfuse_config: dict
     ) -> tuple[Optional[str], bool]:
-        analysis_result = await search_analysis.ainvoke(
+        analysis_result = await get_search_analysis().ainvoke(
             {
                 "user_query": user_query,
                 "snippets": search_results,
@@ -228,7 +228,7 @@ class EntityVerificationWorkflow:
         search_results: str,
         langfuse_config: dict,
     ) -> bool:
-        verified_result = await name_verifier.ainvoke(
+        verified_result = await get_name_verifier().ainvoke(
             {
                 "user_query": user_query,
                 "retrieved_name": retrieved_name,

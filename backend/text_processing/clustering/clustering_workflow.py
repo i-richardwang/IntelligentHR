@@ -30,9 +30,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
-)
+_language_model = None
+
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("SMART_LLM_PROVIDER"),
+            model_name=os.getenv("SMART_LLM_MODEL"),
+        )
+    return _language_model
 
 
 def create_langfuse_config(session_id: str, step: str) -> dict:
@@ -123,7 +132,7 @@ def generate_initial_categories(
         Categories,
         INITIAL_CATEGORY_GENERATION_SYSTEM_MESSAGE,
         INITIAL_CATEGORY_GENERATION_HUMAN_MESSAGE,
-        language_model,
+        get_language_model(),
     )()
 
     categories_list = []
@@ -168,7 +177,7 @@ def merge_categories(
         Categories,
         MERGE_CATEGORIES_SYSTEM_MESSAGE,
         MERGE_CATEGORIES_HUMAN_MESSAGE,
-        language_model,
+        get_language_model(),
     )()
 
     result = merge_chain.invoke(
@@ -317,7 +326,7 @@ def classify_texts(
         ClassificationResult,
         system_message,
         TEXT_CLASSIFICATION_HUMAN_MESSAGE,
-        language_model,
+        get_language_model(),
     )()
 
     markdown_tables = dataframe_to_markdown_tables(

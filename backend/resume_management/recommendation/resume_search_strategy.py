@@ -11,9 +11,18 @@ from backend.resume_management.recommendation.recommendation_state import (
 from utils.llm_tools import LanguageModelChain, init_language_model
 
 # 初始化语言模型
-language_model = init_language_model(
-    provider=os.getenv("SMART_LLM_PROVIDER"), model_name=os.getenv("SMART_LLM_MODEL")
-)
+_language_model = None
+
+
+def get_language_model():
+    """延迟获取语言模型（首次调用时初始化并缓存），避免导入期强制要求 LLM 环境变量。"""
+    global _language_model
+    if _language_model is None:
+        _language_model = init_language_model(
+            provider=os.getenv("SMART_LLM_PROVIDER"),
+            model_name=os.getenv("SMART_LLM_MODEL"),
+        )
+    return _language_model
 
 
 class ResumeSearchStrategyGenerator:
@@ -59,7 +68,7 @@ class ResumeSearchStrategyGenerator:
             ResumeSearchStrategy,
             self.system_message,
             self.human_message_template,
-            language_model,
+            get_language_model(),
         )()
 
     def create_langfuse_config(self, session_id: str, step: str) -> dict:
@@ -279,7 +288,7 @@ class CollectionSearchStrategyGenerator:
                 CollectionSearchStrategy,
                 system_message,
                 self.collection_specific_human_message_template,
-                language_model,
+                get_language_model(),
             )()
 
             langfuse_config = self.create_langfuse_config(
