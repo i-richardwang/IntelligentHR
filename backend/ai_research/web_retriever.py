@@ -1,14 +1,13 @@
 # backend/ai_research/web_retriever.py
 
 import os
+import asyncio
 import logging
 from typing import List, Dict, Any
-import requests
+import httpx
 from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 
-from tavily import TavilyClient
+from tavily import AsyncTavilyClient
 from ddgs import DDGS
 
 from langchain_classic.retrievers import ContextualCompressionRetriever
@@ -51,7 +50,7 @@ class TavilySearch:
         self.query = query
         self.headers = headers or {}
         self.api_key = self._get_api_key()
-        self.client = TavilyClient(self.api_key)
+        self.client = AsyncTavilyClient(self.api_key)
         self.topic = topic
 
     def _get_api_key(self) -> str:
@@ -68,9 +67,9 @@ class TavilySearch:
             )
         return api_key
 
-    def search(self, max_results: int = 7) -> List[Dict[str, str]]:
+    async def search(self, max_results: int = 7) -> List[Dict[str, str]]:
         """
-        执行搜索
+        执行搜索（异步）
 
         Tavily 无结果或调用出错时，回退到 DuckDuckGo；两者都失败时返回空列表。
         （API 密钥缺失属配置错误，会在客户端构造时以 TavilyAPIError 直接抛出。）
@@ -79,7 +78,7 @@ class TavilySearch:
         :return: 搜索结果列表
         """
         try:
-            results = self.client.search(
+            results = await self.client.search(
                 self.query,
                 search_depth="basic",
                 max_results=max_results,
@@ -94,18 +93,19 @@ class TavilySearch:
         except Exception as e:
             logger.warning("Tavily搜索出错: %s。回退到DuckDuckGo搜索API...", e)
 
-        # DuckDuckGo 回退
+        # DuckDuckGo 回退（ddgs 仅提供同步接口，放入线程执行以免阻塞事件循环）
         try:
-            ddg = DDGS()
-            results = list(
-                ddg.text(self.query, region="wt-wt", max_results=max_results)
-            )
+            results = await asyncio.to_thread(self._ddg_search, max_results)
             if not results:
                 logger.info("DuckDuckGo搜索同样未找到结果。")
             return results
         except Exception as ddg_error:
             logger.error("DuckDuckGo搜索出错: %s。获取源失败。返回空响应。", ddg_error)
             return []
+
+    def _ddg_search(self, max_results: int) -> List[Dict[str, str]]:
+        """同步 DuckDuckGo 检索，仅供 :meth:`search` 经 ``asyncio.to_thread`` 调用。"""
+        return list(DDGS().text(self.query, region="wt-wt", max_results=max_results))
 
 
 def get_retriever(retriever: str):
@@ -131,27 +131,25 @@ def get_default_retriever():
 class BeautifulSoupScraper:
     """使用BeautifulSoup的网页抓取器"""
 
-    def __init__(self, link: str, session: requests.Session = None, config=None):
+    def __init__(self, link: str, config=None):
         """
         初始化抓取器
 
         :param link: 要抓取的URL
-        :param session: 请求会话
         :param config: 配置对象（可选，用于读取超时等设置）
         """
         self.link = link
-        self.session = session or requests.Session()
         self.config = config
 
-    def scrape(self) -> str:
+    async def scrape(self, client: httpx.AsyncClient) -> str:
         """
-        抓取网页内容
+        抓取网页内容（异步）
 
+        :param client: 复用的 httpx 异步客户端（由调用方创建并统一管理连接池）
         :return: 抓取的内容（失败或非 HTML 资源时返回空字符串）
         """
         try:
-            timeout = getattr(self.config, "scrape_timeout", 8) if self.config else 8
-            response = self.session.get(self.link, timeout=timeout)
+            response = await client.get(self.link)
             response.raise_for_status()  # 检查 HTTP 错误状态码
 
             # 跳过 PDF 等非 HTML 资源，避免二进制内容污染文本抽取
@@ -171,7 +169,7 @@ class BeautifulSoupScraper:
             chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
             return "\n".join(chunk for chunk in chunks if chunk)
 
-        except requests.exceptions.RequestException as e:
+        except httpx.HTTPError as e:
             logger.warning("网络请求错误 %s: %s", self.link, e)
             return ""
         except Exception as e:
@@ -211,38 +209,47 @@ class Scraper:
         :param scraper_class: 使用的抓取器类
         """
         self.urls = urls
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": user_agent})
+        self.user_agent = user_agent
         self.scraper_class = scraper_class
         self.config = config
 
-    def run(self) -> List[Dict[str, Any]]:
+    async def run(self) -> List[Dict[str, Any]]:
         """
-        执行抓取任务
+        执行抓取任务（异步并发）
+
+        复用单个 httpx 异步客户端以共享连接池，并用 ``asyncio.gather`` 并发抓取；
+        并发上限由连接池 ``max_connections`` 控制（httpx 官方推荐做法）。
 
         :return: 抓取结果列表
         """
-        partial_extract = partial(self._extract_data_from_link, session=self.session)
-        max_workers = (
+        max_connections = (
             getattr(self.config, "scrape_max_workers", 20) if self.config else 20
         )
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            contents = executor.map(partial_extract, self.urls)
+        timeout = getattr(self.config, "scrape_timeout", 8) if self.config else 8
+        async with httpx.AsyncClient(
+            headers={"User-Agent": self.user_agent},
+            follow_redirects=True,
+            timeout=timeout,
+            limits=httpx.Limits(max_connections=max_connections),
+        ) as client:
+            contents = await asyncio.gather(
+                *(self._extract_data_from_link(client, link) for link in self.urls)
+            )
         return [content for content in contents if content["raw_content"] is not None]
 
-    def _extract_data_from_link(
-        self, link: str, session: requests.Session
+    async def _extract_data_from_link(
+        self, client: httpx.AsyncClient, link: str
     ) -> Dict[str, Any]:
         """
-        从链接中提取数据
+        从链接中提取数据（异步）
 
+        :param client: 复用的 httpx 异步客户端
         :param link: 要抓取的URL
-        :param session: 请求会话
         :return: 包含抓取结果的字典
         """
         try:
-            scraper = self.scraper_class(link, session, self.config)
-            content = scraper.scrape()
+            scraper = self.scraper_class(link, self.config)
+            content = await scraper.scrape(client)
 
             min_length = (
                 getattr(self.config, "min_content_length", 100) if self.config else 100
@@ -255,16 +262,16 @@ class Scraper:
             return {"url": link, "raw_content": None}
 
 
-def scrape_urls(urls: List[str], cfg: Any) -> List[Dict[str, Any]]:
+async def scrape_urls(urls: List[str], cfg: Any) -> List[Dict[str, Any]]:
     """
-    抓取多个URL
+    抓取多个URL（异步）
 
     :param urls: 要抓取的URL列表
     :param cfg: 配置对象
     :return: 抓取结果列表
     """
     scraper = Scraper(urls, cfg.user_agent, config=cfg)
-    return scraper.run()
+    return await scraper.run()
 
 
 class SearchAPIRetriever(BaseRetriever):
@@ -362,5 +369,5 @@ class ContextCompressor:
         :return: 压缩后的上下文字符串
         """
         compressed_docs = self.get_contextual_retriever()
-        relevant_docs = compressed_docs.invoke(query)
+        relevant_docs = await compressed_docs.ainvoke(query)
         return self.pretty_print_docs(relevant_docs, max_results)

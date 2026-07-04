@@ -109,14 +109,14 @@ class AIResearcher:
         retriever = retriever_class(sub_query)
         self.log(f"使用检索器: {retriever.__class__.__name__}")
 
-        search_results = retriever.search(
+        search_results = await retriever.search(
             max_results=self.cfg.max_search_results_per_query
         )
 
         urls = [result["href"] for result in search_results]
         self.log(f"正在为子查询抓取 URL...")
 
-        scraped_content = scrape_urls(urls, self.cfg)
+        scraped_content = await scrape_urls(urls, self.cfg)
 
         context_compressor = ContextCompressor(
             scraped_content, self.memory.get_embeddings()

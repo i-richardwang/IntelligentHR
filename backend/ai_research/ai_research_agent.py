@@ -343,12 +343,12 @@ async def test_search_and_scrape():
 
     retriever_class = get_retriever(cfg.retriever) or get_default_retriever()
     retriever = retriever_class(query)
-    search_results = retriever.search(max_results=cfg.max_search_results_per_query)
+    search_results = await retriever.search(max_results=cfg.max_search_results_per_query)
 
     print(f"搜索结果: {search_results[:2]}...")  # 只打印前两个结果
 
     urls = [result["href"] for result in search_results]
-    scraped_content = scrape_urls(urls, cfg)
+    scraped_content = await scrape_urls(urls, cfg)
 
     print(f"抓取的内容: {scraped_content[:1]}...")  # 只打印第一个结果
 
@@ -359,10 +359,10 @@ async def test_context_compression():
 
     retriever_class = get_retriever(cfg.retriever) or get_default_retriever()
     retriever = retriever_class(query)
-    search_results = retriever.search(max_results=cfg.max_search_results_per_query)
+    search_results = await retriever.search(max_results=cfg.max_search_results_per_query)
 
     urls = [result["href"] for result in search_results]
-    scraped_content = scrape_urls(urls, cfg)
+    scraped_content = await scrape_urls(urls, cfg)
 
     memory = Memory(cfg.embedding_provider)
     embeddings = memory.get_embeddings()
