@@ -14,10 +14,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from langchain_core.embeddings import Embeddings
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# 库模块只获取 logger，不配置根 logger（日志配置由应用入口 utils.logging_config.setup_logging 负责）
 logger = logging.getLogger(__name__)
 
 

@@ -6,9 +6,12 @@
 
 import os
 import json
+import logging
 from typing import Dict, Optional, Any
 import mysql.connector
 from mysql.connector import Error
+
+logger = logging.getLogger(__name__)
 
 # 数据库连接配置
 DB_CONFIG = {
@@ -31,7 +34,7 @@ def get_db_connection():
         conn = mysql.connector.connect(**DB_CONFIG)
         return conn
     except Error as e:
-        print(f"Error connecting to MySQL Database: {e}")
+        logger.error("连接 MySQL 数据库出错: %s", e)
         return None
 
 
@@ -66,7 +69,7 @@ def init_all_tables():
 
         conn.commit()
     except Error as e:
-        print(f"Error creating table: {e}")
+        logger.error("创建数据表出错: %s", e)
     finally:
         cursor.close()
         conn.close()
@@ -119,7 +122,7 @@ def store_full_resume(resume_data: Dict[str, Any]):
 
         conn.commit()
     except Error as e:
-        print(f"Error storing resume data: {e}")
+        logger.error("存储简历数据出错: %s", e)
         conn.rollback()
     finally:
         cursor.close()
@@ -160,7 +163,7 @@ def get_full_resume(resume_id: str) -> Optional[Dict[str, Any]]:
                 "file_or_url": result["file_or_url"],
             }
     except Error as e:
-        print(f"Error retrieving resume data: {e}")
+        logger.error("检索简历数据出错: %s", e)
     finally:
         cursor.close()
         conn.close()

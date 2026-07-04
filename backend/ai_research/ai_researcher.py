@@ -1,6 +1,7 @@
 # backend/ai_research/ai_researcher.py
 
 import asyncio
+import logging
 from typing import List, Dict, Any, Optional
 
 from backend.ai_research.ai_research_config import Config
@@ -19,6 +20,8 @@ from backend.ai_research.ai_research_agent import (
     generate_report,
     get_report_introduction,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AIResearcher:
@@ -87,7 +90,7 @@ class AIResearcher:
         :param message: 要记录的消息
         """
         if self.verbose:
-            print(message)
+            logger.info(message)
             if self.verbose_callback:
                 self.verbose_callback(message)
 

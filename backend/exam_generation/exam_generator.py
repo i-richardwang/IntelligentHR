@@ -1,9 +1,12 @@
 import os
+import logging
 from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 from utils.langfuse_tools import get_langfuse_config
 
 from utils.llm_tools import init_language_model, LanguageModelChain
+
+logger = logging.getLogger(__name__)
 
 
 class MultipleChoiceQuestion(BaseModel):
@@ -136,8 +139,8 @@ class ExamGenerator:
                 config=langfuse_config,
             )
             return result["questions"]
-        except Exception as e:
-            print(f"生成问题时出错: {str(e)}")
+        except Exception:
+            logger.exception("生成问题时出错")
             return []
 
     def _format_previous_questions(

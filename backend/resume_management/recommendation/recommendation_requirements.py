@@ -8,6 +8,9 @@ from utils.langfuse_tools import get_langfuse_config
 import uuid
 import os
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 # 初始化语言模型
 _language_model = None
@@ -128,10 +131,10 @@ class RecommendationRequirements:
         if refined_query.status == "ready":
             self.refined_query = refined_query.content
             self.current_question = None
-            print("需求分析完成，准备开始搜索合适的简历")
+            logger.info("需求分析完成，准备开始搜索合适的简历")
         else:
             self.current_question = refined_query.content
-            print("正在进一步确认您的需求")
+            logger.info("正在进一步确认您的需求")
 
         return refined_query.status
 

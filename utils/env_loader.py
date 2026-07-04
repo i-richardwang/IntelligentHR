@@ -1,5 +1,8 @@
 import os
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 
 def load_env():
@@ -15,4 +18,4 @@ def load_env():
     # 加载 .env 文件
     load_dotenv(dotenv_path)
 
-    print("环境变量已加载")
+    logger.info("环境变量已加载")

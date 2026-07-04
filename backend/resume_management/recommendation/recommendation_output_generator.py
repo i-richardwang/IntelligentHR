@@ -136,5 +136,5 @@ class RecommendationOutputGenerator:
             }
         )
 
-        print("推荐结果生成完毕，即将为您展示")
+        logger.info("推荐结果生成完毕，即将为您展示")
         return final_recommendations

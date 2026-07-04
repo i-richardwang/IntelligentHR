@@ -1,6 +1,7 @@
 # backend/ai_research/web_retriever.py
 
 import os
+import logging
 from typing import List, Dict, Any
 import requests
 from bs4 import BeautifulSoup
@@ -18,6 +19,8 @@ from langchain_classic.retrievers.document_compressors import (
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
+
+logger = logging.getLogger(__name__)
 
 
 class TavilyAPIError(Exception):
@@ -87,9 +90,9 @@ class TavilySearch:
                 return [
                     {"href": obj["url"], "body": obj["content"]} for obj in sources
                 ]
-            print("Tavily API搜索未找到结果。回退到DuckDuckGo搜索API...")
+            logger.info("Tavily API搜索未找到结果。回退到DuckDuckGo搜索API...")
         except Exception as e:
-            print(f"Tavily搜索出错: {e}。回退到DuckDuckGo搜索API...")
+            logger.warning("Tavily搜索出错: %s。回退到DuckDuckGo搜索API...", e)
 
         # DuckDuckGo 回退
         try:
@@ -98,10 +101,10 @@ class TavilySearch:
                 ddg.text(self.query, region="wt-wt", max_results=max_results)
             )
             if not results:
-                print("DuckDuckGo搜索同样未找到结果。")
+                logger.info("DuckDuckGo搜索同样未找到结果。")
             return results
         except Exception as ddg_error:
-            print(f"DuckDuckGo搜索出错: {ddg_error}。获取源失败。返回空响应。")
+            logger.error("DuckDuckGo搜索出错: %s。获取源失败。返回空响应。", ddg_error)
             return []
 
 
@@ -169,10 +172,10 @@ class BeautifulSoupScraper:
             return "\n".join(chunk for chunk in chunks if chunk)
 
         except requests.exceptions.RequestException as e:
-            print(f"网络请求错误 {self.link}: {str(e)}")
+            logger.warning("网络请求错误 %s: %s", self.link, e)
             return ""
         except Exception as e:
-            print(f"抓取 {self.link} 时出错: {str(e)}")
+            logger.warning("抓取 %s 时出错: %s", self.link, e)
             return ""
 
     def _get_content_from_url(self, soup: BeautifulSoup) -> str:
@@ -248,7 +251,7 @@ class Scraper:
                 return {"url": link, "raw_content": None}
             return {"url": link, "raw_content": content}
         except Exception as e:
-            print(f"从 {link} 提取数据时出错: {str(e)}")
+            logger.warning("从 %s 提取数据时出错: %s", link, e)
             return {"url": link, "raw_content": None}
 
 

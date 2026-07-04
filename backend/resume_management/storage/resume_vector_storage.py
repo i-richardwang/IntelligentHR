@@ -202,10 +202,10 @@ def store_raw_resume_text_in_milvus(resume_id: str, raw_text: str, file_name: st
         # 插入记录
         insert_to_milvus(collection, data, vectors)
 
-        print(f"Raw resume text for resume ID {resume_id} stored successfully.")
+        logger.info("简历原文已成功存储，简历 ID: %s", resume_id)
 
-    except Exception as e:
-        print(f"Error storing raw resume text: {str(e)}")
+    except Exception:
+        logger.exception("存储简历原文出错")
     finally:
         connections.disconnect("default")
 

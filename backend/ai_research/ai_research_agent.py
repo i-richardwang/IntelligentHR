@@ -2,6 +2,7 @@
 
 import json
 import asyncio
+import logging
 from typing import List, Dict, Tuple, Any, Optional
 from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -27,6 +28,8 @@ from backend.ai_research.web_retriever import (
 from backend.ai_research.research_enums import ReportType, ReportSource, Tone
 from backend.ai_research.embedding_service import Memory
 from utils.llm_tools import init_language_model
+
+logger = logging.getLogger(__name__)
 
 
 class AgentResponse(BaseModel):
@@ -103,7 +106,7 @@ Important instructions:
 
         return agent_dict["server"], agent_dict["agent_role_prompt"]
     except json.JSONDecodeError:
-        print("解析JSON时出错。使用默认代理。")
+        logger.warning("解析JSON时出错。使用默认代理。")
         return "默认代理", (
             "你是一个AI批判性思维研究助手。你的唯一目的是就给定文本撰写结构良好、"
             "批评性强、客观公正的报告。"
@@ -151,7 +154,7 @@ async def get_sub_queries(
         sub_queries = json.loads(response.content)
         return sub_queries
     except json.JSONDecodeError:
-        print("解析JSON时出错。返回原始查询。")
+        logger.warning("解析JSON时出错。返回原始查询。")
         return [query]
 
 
@@ -205,8 +208,8 @@ async def construct_subtopics(
 
         return output["subtopics"]
 
-    except Exception as e:
-        print("解析子主题时出现异常：", e)
+    except Exception:
+        logger.exception("解析子主题时出现异常")
         return subtopics
 
 

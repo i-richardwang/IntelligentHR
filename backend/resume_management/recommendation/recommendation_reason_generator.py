@@ -2,10 +2,13 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 import pandas as pd
 import os
+import logging
 from utils.llm_tools import LanguageModelChain, init_language_model
 from utils.langfuse_tools import get_langfuse_config
 import uuid
 import asyncio
+
+logger = logging.getLogger(__name__)
 
 
 class RecommendationReason(BaseModel):
@@ -147,5 +150,5 @@ class RecommendationReasonGenerator:
         reasons = await asyncio.gather(*tasks)
         reasons_df = pd.DataFrame(reasons)
 
-        print("已为每份推荐的简历生成详细的推荐理由")
+        logger.info("已为每份推荐的简历生成详细的推荐理由")
         return reasons_df

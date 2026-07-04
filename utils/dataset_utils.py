@@ -1,10 +1,13 @@
 import os
 import sys
+import logging
 import pandas as pd
 import json
 import glob
 from functools import reduce
 from typing import List, Optional, Union, Dict
+
+logger = logging.getLogger(__name__)
 
 # sys.path.append(
 #     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -67,9 +70,9 @@ def merge_dataframes(
         "删除的重复行数": removed_duplicates,
     }
 
-    print("合并结果汇总:")
+    logger.info("合并结果汇总:")
     for key, value in summary.items():
-        print(f"- {key}: {value}")
+        logger.info("- %s: %s", key, value)
 
     return merged_df
 
@@ -110,8 +113,8 @@ def compare_dataframes(
     diff1 = df1_indexed.loc[~df1_indexed.index.isin(df2_indexed.index)].reset_index()
     diff2 = df2_indexed.loc[~df2_indexed.index.isin(df1_indexed.index)].reset_index()
 
-    print(f"DataFrame 1 中存在但 DataFrame 2 中不存在的行数: {len(diff1)}")
-    print(f"DataFrame 2 中存在但 DataFrame 1 中不存在的行数: {len(diff2)}")
+    logger.info("DataFrame 1 中存在但 DataFrame 2 中不存在的行数: %s", len(diff1))
+    logger.info("DataFrame 2 中存在但 DataFrame 1 中不存在的行数: %s", len(diff2))
 
     if output_mode == "combined":
         return pd.concat([diff1, diff2], axis=0, ignore_index=True)
@@ -176,9 +179,9 @@ def batch_load_datasets_with_pattern(
         "总行数/对象数": total_rows,
     }
 
-    print("数据加载汇总:")
+    logger.info("数据加载汇总:")
     for key, value in summary.items():
-        print(f"- {key}: {value}")
+        logger.info("- %s: %s", key, value)
 
     return data_list
 
@@ -219,9 +222,9 @@ def merge_json_datasets(json_datasets: List[Union[Dict, List[Dict]]]) -> List[Di
         "合并后的总对象数": total_objects,
     }
 
-    print("JSON数据集合并汇总:")
+    logger.info("JSON数据集合并汇总:")
     for key, value in summary.items():
-        print(f"- {key}: {value}")
+        logger.info("- %s: %s", key, value)
 
     return merged_json
 
@@ -267,4 +270,4 @@ def cleanup_temp_files():
             if os.path.isfile(file_path):
                 os.unlink(file_path)
         except Exception as e:
-            print(f"删除 {file_path} 时出错: {e}")
+            logger.error("删除 %s 时出错: %s", file_path, e)

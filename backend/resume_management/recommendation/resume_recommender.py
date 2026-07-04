@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 from typing import Dict, Optional, List
 from backend.resume_management.recommendation.recommendation_requirements import (
     RecommendationRequirements,
@@ -17,6 +18,8 @@ from backend.resume_management.recommendation.recommendation_output_generator im
 )
 from utils.langfuse_tools import get_langfuse_config
 import uuid
+
+logger = logging.getLogger(__name__)
 
 
 class ResumeRecommender:
@@ -228,8 +231,8 @@ class ResumeRecommender:
             await self.prepare_final_recommendations()
 
             return self.get_recommendations()
-        except Exception as e:
-            print(f"推荐过程中发生错误: {str(e)}")
+        except Exception:
+            logger.exception("推荐过程中发生错误")
             return None
 
     def get_refined_query(self) -> Optional[str]:

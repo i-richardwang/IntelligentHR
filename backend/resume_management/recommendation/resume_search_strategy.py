@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 import os
+import logging
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from utils.langfuse_tools import get_langfuse_config
@@ -9,6 +10,8 @@ from backend.resume_management.recommendation.recommendation_state import (
     CollectionSearchStrategy,
 )
 from utils.llm_tools import LanguageModelChain, init_language_model
+
+logger = logging.getLogger(__name__)
 
 # 初始化语言模型
 _language_model = None
@@ -117,7 +120,7 @@ class ResumeSearchStrategyGenerator:
             for cr in resume_search_strategy.collection_relevances
         ]
 
-        print("已生成初步的简历匹配策略")
+        logger.info("已生成初步的简历匹配策略")
 
         return collection_relevances
 
@@ -341,5 +344,5 @@ class CollectionSearchStrategyGenerator:
         for result in results:
             collection_search_strategies.update(result)
 
-        print("已完成详细的简历搜索策略制定")
+        logger.info("已完成详细的简历搜索策略制定")
         return collection_search_strategies

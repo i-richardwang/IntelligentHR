@@ -8,6 +8,11 @@ import hmac
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_root)
 
+# 应用入口处一次性配置日志（库模块只 getLogger，不在导入期配置根 logger）
+from utils.logging_config import setup_logging
+
+setup_logging()
+
 # 在文件开头添加这个函数
 def maintain_auth_token():
     """Maintain auth_token across page navigation"""
