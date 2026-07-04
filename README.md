@@ -44,9 +44,24 @@ SQLite、简历文件落本地文件系统。**无需 Milvus / MySQL / MinIO 等
    ```
    仅启动应用容器本身(数据仍是容器内的本地 SQLite/文件),访问 `http://localhost:8510`。
 
-> 说明:向量检索、简历库、SQL 助手目标业务库均为本地文件。其中 SQL 助手需要一个
-> 业务样例库(`SQLBOT_DB_PATH`,默认 `data/sqlbot.db`)、少样本/术语等向量集合需要
-> 预先灌入示例数据后相应功能才会完整生效。
+> 说明:向量检索、简历库、SQL 助手目标业务库均为本地文件,首次运行会按需自动创建。
+
+### 初始化 SQL 助手 demo 数据(可选)
+
+SQL 助手需要一个业务样例库(`SQLBOT_DB_PATH`,默认 `data/sqlbot.db`)以及若干向量集合
+(选表用的 `table_descriptions`、术语映射用的 `term_descriptions`、少样本用的
+`query_examples`)。项目内置一键初始化脚本,自动生成一套自洽的招聘 demo 数据并分别灌入
+本地 SQLite 业务库与 libSQL 向量库:
+
+```
+python -m tools.seed_demo_data
+```
+
+- 业务库步骤不依赖任何 LLM / 网络;向量库步骤会调用已配置的 embedding provider 生成向量,
+  故运行前需在 `.env` 中配好 Embedding 相关变量。
+- 向量集合默认「已存在且非空则跳过」,`--overwrite` 可原地重建;`--skip-business` /
+  `--skip-vectors` 可只跑其中一步。数据量可通过 `--activities` / `--interviewers` /
+  `--candidates` 调整。
 
 ## 贡献
 

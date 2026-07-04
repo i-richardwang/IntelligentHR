@@ -325,6 +325,11 @@
                     "type": "str",
                     "description": "Description of the table's purpose and content",
                     "is_vector": true
+                },
+                {
+                    "name": "additional_info",
+                    "type": "str",
+                    "description": "Additional usage notes about the table (relationships, granularity, join keys)"
                 }
             ],
             "embedding_fields": [
@@ -336,19 +341,44 @@
             "description": "Collection for domain terminology mapping and definitions",
             "fields": [
                 {
-                    "name": "term",
+                    "name": "original_term",
                     "type": "str",
-                    "description": "Domain-specific term or phrase",
+                    "description": "Original non-standard term, nickname or abbreviation",
                     "is_vector": true
                 },
                 {
-                    "name": "description",
+                    "name": "standard_name",
                     "type": "str",
-                    "description": "Standard definition and usage context of the term"
+                    "description": "Standardized name the term maps to (may be empty for pure explanations)"
+                },
+                {
+                    "name": "additional_info",
+                    "type": "str",
+                    "description": "Explanation and usage context of the term"
                 }
             ],
             "embedding_fields": [
-                "term"
+                "original_term"
+            ]
+        },
+        "query_examples": {
+            "name": "query_examples",
+            "description": "SQL query few-shot examples (natural-language question -> SQL)",
+            "fields": [
+                {
+                    "name": "query_text",
+                    "type": "str",
+                    "description": "Natural-language query question",
+                    "is_vector": true
+                },
+                {
+                    "name": "query_sql",
+                    "type": "str",
+                    "description": "Corresponding SQL statement (SQLite dialect)"
+                }
+            ],
+            "embedding_fields": [
+                "query_text"
             ]
         }
     }
