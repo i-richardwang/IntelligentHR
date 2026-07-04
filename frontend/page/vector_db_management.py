@@ -6,7 +6,6 @@ from typing import List, Dict, Tuple, Optional
 
 import streamlit as st
 import pandas as pd
-from pymilvus import Collection, utility
 
 # 添加项目根目录到 Python 路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -15,11 +14,13 @@ sys.path.append(project_root)
 from utils.llm_tools import create_embeddings
 from utils.vector_db_utils import (
     connect_to_milvus,
-    initialize_vector_store,
     create_milvus_collection,
     insert_to_milvus,
-    get_collection_stats,
     update_milvus_records,
+    has_collection,
+    get_all_records,
+    get_num_entities,
+    get_field_names,
 )
 from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
 
@@ -39,7 +40,7 @@ with open("data/config/collections_config.json", "r", encoding="utf-8") as f:
 def insert_examples_to_milvus(
     examples: List[Dict], collection_config: Dict, db_name: str, overwrite: bool
 ):
-    """将示例插入到Milvus数据库"""
+    """将示例插入到向量数据库"""
     connect_to_milvus(db_name)
 
     embeddings = create_embeddings()
@@ -71,12 +72,12 @@ def insert_examples_to_milvus(
             vector = embeddings.embed_query(embedding_text)
             vectors[field_name].append(vector)
 
-    if not utility.has_collection(collection_config["name"]):
+    if not has_collection(collection_config["name"]):
         collection = create_milvus_collection(
             collection_config, len(next(iter(vectors.values()))[0])
         )
     else:
-        collection = Collection(collection_config["name"])
+        collection = collection_config["name"]
 
     if overwrite:
         update_milvus_records(
@@ -113,16 +114,14 @@ def get_existing_records(
 ) -> Optional[pd.DataFrame]:
     """获取已存在的记录，如果collection不存在则返回None"""
     connect_to_milvus(db_name)
-    if not utility.has_collection(collection_config["name"]):
+    if not has_collection(collection_config["name"]):
         return None
-
-    collection = initialize_vector_store(collection_config["name"])
 
     # 获取所有字段名
     field_names = [field["name"] for field in collection_config["fields"]]
 
     # 查询所有记录
-    results = collection.query(expr="id >= 0", output_fields=field_names)
+    results = get_all_records(collection_config["name"], output_fields=field_names)
 
     return pd.DataFrame(results)
 
@@ -188,12 +187,11 @@ def display_collection_stats(collection_config: Dict, db_name: str):
     with st.container(border=True):
         st.subheader("数据统计")
         connect_to_milvus(db_name)
-        if utility.has_collection(collection_config["name"]):
-            collection = initialize_vector_store(collection_config["name"])
-            stats = get_collection_stats(collection)
-            st.write(f"**实体数量:** {stats['实体数量']}")
-            st.write(f"**字段数量:** {stats['字段数量']}")
-            st.write(f"**索引类型:** {stats['索引类型']}")
+        name = collection_config["name"]
+        if has_collection(name):
+            st.write(f"**实体数量:** {get_num_entities(name)}")
+            st.write(f"**字段数量:** {len(get_field_names(name))}")
+            st.write("**检索方式:** cosine 暴力检索（向量归一化，等价内积）")
         else:
             st.info("该Collection尚未创建")
 
@@ -220,7 +218,7 @@ def display_data_preview(
 
 
 def main():
-    st.title("🗄️ Milvus数据库管理")
+    st.title("🗄️ 向量数据库管理")
     st.markdown("---")
 
     # 显示功能介绍
@@ -274,21 +272,21 @@ def main():
             display_data_preview(new_examples, duplicate_count, collection_exists)
 
             if len(new_examples) > 0 or (overwrite_option and duplicate_count > 0):
-                if st.button("插入到Milvus数据库"):
+                if st.button("插入到向量数据库"):
                     with st.spinner("正在插入数据..."):
                         if overwrite_option:
                             inserted_count = insert_examples_to_milvus(
                                 examples, collection_config, selected_db, True
                             )
                             st.success(
-                                f"成功插入或更新 {inserted_count} 条记录到Milvus数据库"
+                                f"成功插入或更新 {inserted_count} 条记录到向量数据库"
                             )
                         else:
                             inserted_count = insert_examples_to_milvus(
                                 new_examples, collection_config, selected_db, False
                             )
                             st.success(
-                                f"成功插入 {inserted_count} 条新记录到Milvus数据库"
+                                f"成功插入 {inserted_count} 条新记录到向量数据库"
                             )
 
         except ValueError as ve:
@@ -303,7 +301,7 @@ def main():
 def display_db_management_info():
     st.info(
         """
-    Milvus数据库管理工具用于高效管理和更新向量数据库中的数据。
+    向量数据库管理工具用于高效管理和更新向量数据库中的数据。
     支持CSV文件上传、数据预览和批量插入，便于维护和扩展向量数据集。
     """
     )

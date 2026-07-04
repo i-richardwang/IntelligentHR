@@ -37,14 +37,8 @@ class PermissionValidator:
 
     def __init__(self):
         """初始化数据库连接"""
-        db_url = (
-            f"mysql+pymysql://"
-            f"{os.getenv('SQLBOT_DB_USER', 'root')}:"
-            f"{os.getenv('SQLBOT_DB_PASSWORD', '')}@"
-            f"{os.getenv('SQLBOT_DB_HOST', 'localhost')}:"
-            f"{os.getenv('SQLBOT_DB_PORT', '3306')}/"
-            f"{os.getenv('SQLBOT_DB_NAME', '')}"
-        )
+        # 目标业务库改用本地 SQLite（纯本地零 server）。
+        db_url = f"sqlite:///{os.getenv('SQLBOT_DB_PATH', 'data/sqlbot.db')}"
         self.engine = create_engine(db_url)
 
     def get_all_table_names(self) -> List[str]:

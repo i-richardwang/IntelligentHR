@@ -9,23 +9,20 @@ import asyncio
 from utils.llm_tools import create_embeddings
 from utils.vector_db_utils import (
     connect_to_milvus,
-    get_milvus_client,
     get_num_entities,
+    search_by_vector_column,
 )
 
 logger = logging.getLogger(__name__)
 
-# Milvus 的 topk(limit) 硬上限：自建 Milvus 为 16384，超过该上限直接传入会导致 search 抛错
-MILVUS_TOPK_LIMIT = 16384
+# 检索 limit 的合理上限：空集合时 limit 必须 >=1；上限只是防御性封顶（libSQL 暴力检索
+# 本身无硬限制，demo 规模也远达不到）。
+SEARCH_TOPK_LIMIT = 16384
 
 
-def clamp_milvus_limit(num_entities: int) -> int:
-    """将 Milvus search 的 limit 收敛到合法区间 [1, MILVUS_TOPK_LIMIT]。
-
-    集合可能为空（num_entities<=0，此时 limit 必须 >=1），或实体数超过 topk 硬上限，
-    两种情况直接传入 search 都会抛错，故统一封顶。
-    """
-    return min(max(num_entities, 1), MILVUS_TOPK_LIMIT)
+def clamp_search_limit(num_entities: int) -> int:
+    """将检索 limit 收敛到合法区间 [1, SEARCH_TOPK_LIMIT]。"""
+    return min(max(num_entities, 1), SEARCH_TOPK_LIMIT)
 
 
 class ResumeScorer:
@@ -35,11 +32,7 @@ class ResumeScorer:
         # 统一走项目 embedding 工厂：端点 / 密钥 / 模型均来自环境变量，
         # 不再硬编码供应商 base_url，保证与全项目 embedding 口径一致
         self.embeddings = create_embeddings()
-        self.connection_args = {
-            "host": os.getenv("VECTOR_DB_HOST", "localhost"),
-            "port": os.getenv("VECTOR_DB_PORT", "19530"),
-            "db_name": os.getenv("VECTOR_DB_DATABASE_RESUME", "resume"),
-        }
+        self.db_name = os.getenv("VECTOR_DB_DATABASE_RESUME", "resume")
 
     async def get_embedding(self, text: str) -> Optional[List[float]]:
         """
@@ -101,37 +94,35 @@ class ResumeScorer:
                 logger.warning(f"无法为字段 {field_name} 获取嵌入向量，跳过此查询")
                 continue
 
-            search_params = {"metric_type": "IP", "params": {"nprobe": 10}}
             num_entities = get_num_entities(collection_name)
-            limit = clamp_milvus_limit(num_entities)
+            limit = clamp_search_limit(num_entities)
 
             logger.info(
                 f"集合: {collection_name} 的实体数量: {num_entities} limit: {limit}"
             )
 
-            client = get_milvus_client()
-            results = client.search(
+            # field_name 本身即最终向量列名（如 position_vector），按列名直接检索。
+            # 返回的 distance 为相似度（1 - cosine_distance，越大越相似），与旧版内积口径一致。
+            results = search_by_vector_column(
                 collection_name,
-                data=[query_vector],
-                anns_field=field_name,
-                search_params=search_params,
-                limit=limit,
+                query_vector,
+                field_name,
+                top_k=limit,
                 output_fields=["resume_id"],
             )
 
-            for hits in results:
-                for hit in hits:
-                    resume_id = hit["entity"].get("resume_id")
-                    similarity = hit["distance"]
+            for hit in results:
+                resume_id = hit.get("resume_id")
+                similarity = hit["distance"]
 
-                    if similarity < similarity_threshold:
-                        continue
+                if similarity < similarity_threshold:
+                    continue
 
-                    if resume_id not in resume_scores:
-                        resume_scores[resume_id] = {}
-                    if field_name not in resume_scores[resume_id]:
-                        resume_scores[resume_id][field_name] = []
-                    resume_scores[resume_id][field_name].append(similarity)
+                if resume_id not in resume_scores:
+                    resume_scores[resume_id] = {}
+                if field_name not in resume_scores[resume_id]:
+                    resume_scores[resume_id][field_name] = []
+                resume_scores[resume_id][field_name].append(similarity)
 
         final_scores = {}
         for resume_id, field_scores in resume_scores.items():
@@ -178,7 +169,7 @@ class ResumeScorer:
         Returns:
             pd.DataFrame: 包含排名后的简历得分的DataFrame
         """
-        connect_to_milvus(db_name=self.connection_args["db_name"])
+        connect_to_milvus(db_name=self.db_name)
 
         all_scores = {}
 

@@ -32,14 +32,8 @@ class DatabaseSchemaParser:
         Returns:
             Engine: SQLAlchemy引擎实例
         """
-        db_url = (
-            f"mysql+pymysql://"
-            f"{os.getenv('SQLBOT_DB_USER', 'root')}:"
-            f"{os.getenv('SQLBOT_DB_PASSWORD', '')}@"
-            f"{os.getenv('SQLBOT_DB_HOST', 'localhost')}:"
-            f"{os.getenv('SQLBOT_DB_PORT', '3306')}/"
-            f"{os.getenv('SQLBOT_DB_NAME', '')}"
-        )
+        # 目标业务库改用本地 SQLite（纯本地零 server）；自省走 SQLAlchemy inspect，跨方言通用。
+        db_url = f"sqlite:///{os.getenv('SQLBOT_DB_PATH', 'data/sqlbot.db')}"
         return create_engine(db_url)
 
     def get_table_structure(self, table_name: str) -> Dict[str, List[Dict[str, str]]]:

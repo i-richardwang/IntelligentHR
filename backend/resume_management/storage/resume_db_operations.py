@@ -1,71 +1,69 @@
+"""
+简历上传记录的关系型存储（SQLite）。
+
+原实现依赖 MySQL（独立 server）。为让项目纯本地零 server 运行，改用 Python 内置
+``sqlite3``，数据落单文件 ``RESUME_DB_PATH``（默认 ``data/app.db``）。对外函数签名不变。
+
+注：``minio_path`` 字段名沿用历史命名，迁移后存放的是**本地文件系统相对路径**
+（见 ``resume_storage_handler``）。
+"""
+
 import os
-import json
+import sqlite3
 from typing import Dict, Optional, Any
-import mysql.connector
-from mysql.connector import Error
 import logging
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 数据库连接配置
-DB_CONFIG = {
-    "host": os.getenv("MYSQL_HOST", "localhost"),
-    "user": os.getenv("MYSQL_USER", "root"),
-    "password": os.getenv("MYSQL_PASSWORD", ""),
-    "database": os.getenv("MYSQL_DATABASE", "resume_db"),
-    "port": int(os.getenv("MYSQL_PORT", "3306")),
-}
+# SQLite 数据文件路径（单文件，无需 server）。
+DB_PATH = os.getenv("RESUME_DB_PATH", "data/app.db")
 
 
-def get_db_connection():
+def get_db_connection() -> Optional[sqlite3.Connection]:
     """
-    获取数据库连接。
+    获取 SQLite 数据库连接（行工厂设为 ``sqlite3.Row``，便于按列名取值）。
 
     Returns:
-        mysql.connector.connection.MySQLConnection: MySQL数据库连接对象。
+        Optional[sqlite3.Connection]: 连接对象，失败时返回 None。
     """
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
         return conn
-    except Error as e:
-        logger.error(f"Error connecting to MySQL Database: {e}")
+    except sqlite3.Error as e:
+        logger.error("连接 SQLite 数据库出错: %s", e)
         return None
 
 
 def init_resume_upload_table():
-    """
-    初始化简历上传表。
-    """
+    """初始化简历上传表。"""
     conn = get_db_connection()
     if conn is None:
         return
 
-    cursor = conn.cursor()
     try:
-        cursor.execute(
+        conn.execute(
             """
         CREATE TABLE IF NOT EXISTS resume_uploads (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            resume_hash VARCHAR(32) UNIQUE NOT NULL,
-            resume_type ENUM('pdf', 'url') NOT NULL,
-            file_name VARCHAR(255),
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resume_hash TEXT UNIQUE NOT NULL,
+            resume_type TEXT NOT NULL CHECK (resume_type IN ('pdf', 'url')),
+            file_name TEXT,
             url TEXT,
-            minio_path VARCHAR(255),
-            raw_content LONGTEXT,
-            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_outdated BOOLEAN DEFAULT FALSE,
-            latest_resume_id VARCHAR(32)
+            minio_path TEXT,
+            raw_content TEXT,
+            upload_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_outdated INTEGER DEFAULT 0,
+            latest_resume_id TEXT
         )
         """
         )
         conn.commit()
         logger.info("Resume upload table initialized successfully.")
-    except Error as e:
-        logger.error(f"Error creating resume upload table: {e}")
+    except sqlite3.Error as e:
+        logger.error("Error creating resume upload table: %s", e)
     finally:
-        cursor.close()
         conn.close()
 
 
@@ -87,7 +85,7 @@ def store_resume_record(
         resume_type (str): 简历类型（'pdf' 或 'url'）。
         file_name (Optional[str]): PDF文件名（仅对PDF类型有效）。
         url (Optional[str]): 简历URL（仅对URL类型有效）。
-        minio_path (Optional[str]): MinIO中的文件路径（仅对PDF类型有效）。
+        minio_path (Optional[str]): 本地存储的文件相对路径（仅对PDF类型有效）。
         raw_content (str): 简历的原始内容。
         is_outdated (bool): 是否为过时的简历版本。
         latest_resume_id (Optional[str]): 最新版本简历的ID。
@@ -96,13 +94,12 @@ def store_resume_record(
     if conn is None:
         return
 
-    cursor = conn.cursor()
     try:
-        cursor.execute(
+        conn.execute(
             """
-        INSERT INTO resume_uploads 
+        INSERT INTO resume_uploads
         (resume_hash, resume_type, file_name, url, minio_path, raw_content, is_outdated, latest_resume_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 resume_hash,
@@ -111,17 +108,16 @@ def store_resume_record(
                 url,
                 minio_path,
                 raw_content,
-                is_outdated,
+                int(is_outdated),
                 latest_resume_id,
             ),
         )
         conn.commit()
-        logger.info(f"Resume record stored successfully. Hash: {resume_hash}")
-    except Error as e:
-        logger.error(f"Error storing resume record: {e}")
+        logger.info("Resume record stored successfully. Hash: %s", resume_hash)
+    except sqlite3.Error as e:
+        logger.error("Error storing resume record: %s", e)
         conn.rollback()
     finally:
-        cursor.close()
         conn.close()
 
 
@@ -139,18 +135,16 @@ def get_resume_by_hash(resume_hash: str) -> Optional[Dict[str, Any]]:
     if conn is None:
         return None
 
-    cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute(
-            "SELECT * FROM resume_uploads WHERE resume_hash = %s", (resume_hash,)
+        cursor = conn.execute(
+            "SELECT * FROM resume_uploads WHERE resume_hash = ?", (resume_hash,)
         )
         result = cursor.fetchone()
-        return result
-    except Error as e:
-        logger.error(f"Error retrieving resume data: {e}")
+        return dict(result) if result else None
+    except sqlite3.Error as e:
+        logger.error("Error retrieving resume data: %s", e)
         return None
     finally:
-        cursor.close()
         conn.close()
 
 
@@ -159,21 +153,19 @@ def get_minio_link(resume_hash: str) -> Optional[str]:
     if conn is None:
         return None
 
-    cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute(
-            "SELECT minio_path FROM resume_uploads WHERE resume_hash = %s",
+        cursor = conn.execute(
+            "SELECT minio_path FROM resume_uploads WHERE resume_hash = ?",
             (resume_hash,),
         )
         result = cursor.fetchone()
         if result and result["minio_path"]:
             return result["minio_path"]
         return None
-    except Error as e:
-        logger.error(f"Error retrieving MinIO path: {e}")
+    except sqlite3.Error as e:
+        logger.error("Error retrieving stored file path: %s", e)
         return None
     finally:
-        cursor.close()
         conn.close()
 
 
@@ -189,55 +181,53 @@ def update_resume_version(old_resume_hash: str, new_resume_hash: str):
     if conn is None:
         return
 
-    cursor = conn.cursor()
     try:
         # 将旧版本标记为过时，并更新最新版本的ID
-        cursor.execute(
+        conn.execute(
             """
-            UPDATE resume_uploads 
-            SET is_outdated = TRUE, latest_resume_id = %s 
-            WHERE resume_hash = %s
+            UPDATE resume_uploads
+            SET is_outdated = 1, latest_resume_id = ?
+            WHERE resume_hash = ?
             """,
             (new_resume_hash, old_resume_hash),
         )
         conn.commit()
         logger.info(
-            f"Resume version updated. Old hash: {old_resume_hash}, New hash: {new_resume_hash}"
+            "Resume version updated. Old hash: %s, New hash: %s",
+            old_resume_hash,
+            new_resume_hash,
         )
-    except Error as e:
-        logger.error(f"Error updating resume version: {e}")
+    except sqlite3.Error as e:
+        logger.error("Error updating resume version: %s", e)
         conn.rollback()
     finally:
-        cursor.close()
         conn.close()
 
 
 def get_minio_path_by_id(resume_id: str) -> Optional[str]:
     """
-    根据简历ID从MySQL数据库中获取MinIO路径
+    根据简历ID从数据库中获取本地存储路径。
 
     Args:
         resume_id (str): 简历ID
 
     Returns:
-        Optional[str]: MinIO路径，如果不存在则返回None
+        Optional[str]: 本地存储相对路径，如果不存在则返回None
     """
     conn = get_db_connection()
     if conn is None:
         return None
 
-    cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute(
-            "SELECT minio_path FROM resume_uploads WHERE resume_hash = %s", (resume_id,)
+        cursor = conn.execute(
+            "SELECT minio_path FROM resume_uploads WHERE resume_hash = ?", (resume_id,)
         )
         result = cursor.fetchone()
         return result["minio_path"] if result else None
-    except Error as e:
-        logger.error(f"Error retrieving MinIO path: {e}")
+    except sqlite3.Error as e:
+        logger.error("Error retrieving stored file path: %s", e)
         return None
     finally:
-        cursor.close()
         conn.close()
 
 

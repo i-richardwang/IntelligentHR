@@ -17,7 +17,7 @@ import pdfplumber
 import pandas as pd
 import aiohttp
 from bs4 import BeautifulSoup
-from mysql.connector import Error as MySQLError
+from sqlite3 import Error as StorageError
 
 # 添加项目根目录到 Python 路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -166,7 +166,7 @@ async def process_single_resume(
                 try:
                     store_resume(resume_data)
                     st.success(f"成功处理 URL: {url}")
-                except MySQLError as e:
+                except StorageError as e:
                     st.error(f"存储简历数据失败: {url}. 错误: {str(e)}")
         except Exception as e:
             st.error(f"处理 URL {url} 时出错: {str(e)}")
@@ -406,7 +406,7 @@ def display_resume_results():
                 try:
                     store_resume(st.session_state.resume_data)
                     st.success("简历数据已成功存储到数据库")
-                except MySQLError as e:
+                except StorageError as e:
                     st.error(f"存储简历数据时出错: {str(e)}")
 
 

@@ -1,83 +1,74 @@
 """
-简历 MySQL 存储模块
+简历结构化数据的关系型存储（SQLite）。
 
-本模块负责简历数据的 MySQL 存储操作，包括表的初始化、数据的存储和检索。
+原实现依赖 MySQL（独立 server）。为让项目纯本地零 server 运行，改用 Python 内置
+``sqlite3``，与 ``resume_db_operations`` 共用同一数据文件 ``RESUME_DB_PATH``
+（默认 ``data/app.db``）。对外函数签名不变。
 """
 
 import os
 import json
+import sqlite3
 import logging
 from typing import Dict, Optional, Any
-import mysql.connector
-from mysql.connector import Error
 
 logger = logging.getLogger(__name__)
 
-# 数据库连接配置
-DB_CONFIG = {
-    "host": os.getenv("MYSQL_HOST", "localhost"),
-    "user": os.getenv("MYSQL_USER", "root"),
-    "password": os.getenv("MYSQL_PASSWORD", ""),
-    "database": os.getenv("MYSQL_DATABASE", "resume_db"),
-    "port": int(os.getenv("MYSQL_PORT", "3306")),
-}
+# SQLite 数据文件路径（与 resume_db_operations 共用）。
+DB_PATH = os.getenv("RESUME_DB_PATH", "data/app.db")
 
 
-def get_db_connection():
+def get_db_connection() -> Optional[sqlite3.Connection]:
     """
-    获取数据库连接。
+    获取 SQLite 数据库连接（行工厂设为 ``sqlite3.Row``）。
 
     Returns:
-        mysql.connector.connection.MySQLConnection: MySQL数据库连接对象。
+        Optional[sqlite3.Connection]: 连接对象，失败时返回 None。
     """
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
         return conn
-    except Error as e:
-        logger.error("连接 MySQL 数据库出错: %s", e)
+    except sqlite3.Error as e:
+        logger.error("连接 SQLite 数据库出错: %s", e)
         return None
 
 
 def init_all_tables():
-    """
-    初始化所有必要的数据库表。
-    """
+    """初始化所有必要的数据库表。"""
     conn = get_db_connection()
     if conn is None:
         return
 
-    cursor = conn.cursor()
-
     try:
-        # 创建 full_resume 表
-        cursor.execute(
+        # 创建 full_resume 表（JSON 字段以 TEXT 存放，读写时手动 json 序列化）
+        conn.execute(
             """
         CREATE TABLE IF NOT EXISTS full_resume (
-            resume_id VARCHAR(255) PRIMARY KEY,
-            personal_info JSON,
-            education JSON,
-            work_experiences JSON,
-            project_experiences JSON,
+            resume_id TEXT PRIMARY KEY,
+            personal_info TEXT,
+            education TEXT,
+            work_experiences TEXT,
+            project_experiences TEXT,
             characteristics TEXT,
             experience_summary TEXT,
             skills_overview TEXT,
-            resume_format VARCHAR(50),
+            resume_format TEXT,
             file_or_url TEXT
         )
         """
         )
-
         conn.commit()
-    except Error as e:
+    except sqlite3.Error as e:
         logger.error("创建数据表出错: %s", e)
     finally:
-        cursor.close()
         conn.close()
 
 
 def store_full_resume(resume_data: Dict[str, Any]):
     """
-    存储完整的简历数据到数据库。
+    存储完整的简历数据到数据库（按 resume_id 幂等 upsert）。
 
     Args:
         resume_data (Dict[str, Any]): 包含完整简历信息的字典。
@@ -86,25 +77,23 @@ def store_full_resume(resume_data: Dict[str, Any]):
     if conn is None:
         return
 
-    cursor = conn.cursor()
-
     try:
-        cursor.execute(
+        conn.execute(
             """
-        INSERT INTO full_resume 
-        (resume_id, personal_info, education, work_experiences, project_experiences, 
-        characteristics, experience_summary, skills_overview, resume_format, file_or_url) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-        personal_info = VALUES(personal_info),
-        education = VALUES(education),
-        work_experiences = VALUES(work_experiences),
-        project_experiences = VALUES(project_experiences),
-        characteristics = VALUES(characteristics),
-        experience_summary = VALUES(experience_summary),
-        skills_overview = VALUES(skills_overview),
-        resume_format = VALUES(resume_format),
-        file_or_url = VALUES(file_or_url)
+        INSERT INTO full_resume
+        (resume_id, personal_info, education, work_experiences, project_experiences,
+        characteristics, experience_summary, skills_overview, resume_format, file_or_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(resume_id) DO UPDATE SET
+            personal_info = excluded.personal_info,
+            education = excluded.education,
+            work_experiences = excluded.work_experiences,
+            project_experiences = excluded.project_experiences,
+            characteristics = excluded.characteristics,
+            experience_summary = excluded.experience_summary,
+            skills_overview = excluded.skills_overview,
+            resume_format = excluded.resume_format,
+            file_or_url = excluded.file_or_url
         """,
             (
                 resume_data["id"],
@@ -119,13 +108,11 @@ def store_full_resume(resume_data: Dict[str, Any]):
                 resume_data.get("file_or_url", ""),
             ),
         )
-
         conn.commit()
-    except Error as e:
+    except sqlite3.Error as e:
         logger.error("存储简历数据出错: %s", e)
         conn.rollback()
     finally:
-        cursor.close()
         conn.close()
 
 
@@ -143,10 +130,10 @@ def get_full_resume(resume_id: str) -> Optional[Dict[str, Any]]:
     if conn is None:
         return None
 
-    cursor = conn.cursor(dictionary=True)
-
     try:
-        cursor.execute("SELECT * FROM full_resume WHERE resume_id = %s", (resume_id,))
+        cursor = conn.execute(
+            "SELECT * FROM full_resume WHERE resume_id = ?", (resume_id,)
+        )
         result = cursor.fetchone()
 
         if result:
@@ -162,10 +149,9 @@ def get_full_resume(resume_id: str) -> Optional[Dict[str, Any]]:
                 "resume_format": result["resume_format"],
                 "file_or_url": result["file_or_url"],
             }
-    except Error as e:
+    except sqlite3.Error as e:
         logger.error("检索简历数据出错: %s", e)
     finally:
-        cursor.close()
         conn.close()
 
     return None

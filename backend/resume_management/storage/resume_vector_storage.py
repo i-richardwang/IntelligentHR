@@ -252,8 +252,7 @@ def delete_resume_from_milvus(resume_id: str):
         collection_name = "raw_resume_texts"
         collection = initialize_vector_store(collection_name)
 
-        expr = f'resume_id == "{resume_id}"'
-        delete_from_milvus(collection, expr)
-        logger.info(f"成功从Milvus中删除简历ID: {resume_id}")
+        delete_from_milvus(collection, "resume_id", resume_id)
+        logger.info(f"成功删除简历ID: {resume_id}")
     except Exception as e:
         logger.error(f"从Milvus删除简历时出错: {str(e)}")

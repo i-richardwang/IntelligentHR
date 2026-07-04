@@ -417,11 +417,11 @@ def process_url(url):
 
 
 def generate_minio_download_link(minio_path: str) -> str:
+    # 文件已改存本地文件系统，返回本地 file:// 链接（函数名沿用历史命名）。
     if not minio_path:
         return "#"
-    minio_base_url = os.getenv("MINIO_BASE_URL", "http://localhost:9000")
-    bucket_name = os.getenv("MINIO_BUCKET_NAME", "resumes")
-    return f"{minio_base_url}/{bucket_name}/{minio_path}"
+    storage_path = os.getenv("RESUME_STORAGE_PATH", "data/resumes")
+    return "file://" + os.path.abspath(os.path.join(storage_path, minio_path))
 
 
 def reset_state():

@@ -31,14 +31,8 @@ class SQLExecutor:
         Returns:
             Engine: SQLAlchemy引擎实例
         """
-        db_url = (
-            f"mysql+pymysql://"
-            f"{os.getenv('SQLBOT_DB_USER', 'root')}:"
-            f"{os.getenv('SQLBOT_DB_PASSWORD', '')}@"
-            f"{os.getenv('SQLBOT_DB_HOST', 'localhost')}:"
-            f"{os.getenv('SQLBOT_DB_PORT', '3306')}/"
-            f"{os.getenv('SQLBOT_DB_NAME', '')}"
-        )
+        # 目标业务库改用本地 SQLite（纯本地零 server）；执行走 SQLAlchemy，跨方言通用。
+        db_url = f"sqlite:///{os.getenv('SQLBOT_DB_PATH', 'data/sqlbot.db')}"
         return create_engine(db_url)
 
     def execute_query(self, sql_query: str) -> Dict[str, Any]:

@@ -1,63 +1,42 @@
 import os
 import hashlib
+import shutil
 import aiohttp
 from typing import BinaryIO
 import pdfplumber
-from minio import Minio
-from minio.error import S3Error
 import logging
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 初始化MinIO客户端
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "resumes")
-
-minio_client = Minio(
-    MINIO_ENDPOINT,
-    access_key=MINIO_ACCESS_KEY,
-    secret_key=MINIO_SECRET_KEY,
-    secure=False,
-)
-
-# 确保bucket存在
-if not minio_client.bucket_exists(MINIO_BUCKET_NAME):
-    minio_client.make_bucket(MINIO_BUCKET_NAME)
-    logger.info(f"Bucket '{MINIO_BUCKET_NAME}' created.")
+# 简历文件本地存储根目录（原用 MinIO，改为本地文件系统，纯本地零 server）。
+RESUME_STORAGE_PATH = os.getenv("RESUME_STORAGE_PATH", "data/resumes")
 
 
 def save_pdf_to_minio(file: BinaryIO) -> str:
     """
-    将PDF文件保存到MinIO存储中。
+    将PDF文件保存到本地存储中（函数名沿用历史命名）。
 
     Args:
         file (BinaryIO): 要保存的PDF文件对象。
 
     Returns:
-        str: MinIO中的文件路径。
+        str: 相对存储根目录的文件路径（形如 ``pdf/<hash>.pdf``），入库沿用此值。
 
     Raises:
-        S3Error: 如果在与MinIO交互时发生错误。
+        OSError: 写入文件失败时抛出。
     """
     try:
         file_hash = calculate_file_hash(file)
-        file_path = f"pdf/{file_hash}.pdf"
+        rel_path = f"pdf/{file_hash}.pdf"
+        abs_path = os.path.join(RESUME_STORAGE_PATH, rel_path)
+        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         file.seek(0)  # 重置文件指针到开始
-        minio_client.put_object(
-            bucket_name=MINIO_BUCKET_NAME,
-            object_name=file_path,
-            data=file,
-            length=file.getbuffer().nbytes,
-            content_type="application/pdf",
-        )
-        logger.info(f"File saved to MinIO: {file_path}")
-        return file_path
-    except S3Error as e:
-        logger.error(f"Error saving file to MinIO: {str(e)}")
+        with open(abs_path, "wb") as out:
+            shutil.copyfileobj(file, out)
+        logger.info("File saved locally: %s", abs_path)
+        return rel_path
+    except OSError as e:
+        logger.error("Error saving file locally: %s", str(e))
         raise
 
 
