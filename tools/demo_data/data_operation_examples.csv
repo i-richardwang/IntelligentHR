@@ -1,0 +1,102 @@
+user_tables,user_query,output
+"dict_items([('performance_results', {'shape': (10, 3), 'dtypes': {'EMP_ID': dtype('O'), '2023_performance': dtype('O'), '2024_performance': dtype('O')}})])",I want to convert multi-year performance data into a single column," ```json
+{
+  ""next_step"": ""execute_operation"",
+  ""operation"": [
+    {
+      ""tool_name"": ""reshape_wide_to_long"",
+      ""tool_args"": {
+        ""df"": ""performance_results"",
+        ""columns_to_compress"": [""2023_performance"", ""2024_performance""],
+        ""new_column_for_old_headers"": ""year"",
+        ""new_column_for_values"": ""performance""
+      },
+      ""output_df_names"": [""multi_year_performance_single_column""]
+    }
+  ]
+}
+```"
+"dict_items([('performance_results', {'shape': (10, 3), 'dtypes': {'EMP_ID': dtype('O'), '2023_performance': dtype('O'), '2024_performance': dtype('O')}}), ('active_employees', {'shape': (10, 1), 'dtypes': {'EMP_ID': dtype('O')}})])",I want to know which employees in the performance table are no longer active?,"```json
+{
+  ""next_step"": ""execute_operation"",
+  ""operation"": [
+    {
+      ""tool_name"": ""compare_dataframes"",
+      ""tool_args"": {
+        ""df1"": ""performance_results"",
+        ""df2"": ""active_employees"",
+        ""key_column_df1"": ""EMP_ID"",
+        ""key_column_df2"": ""EMP_ID""
+      },
+      ""output_df_names"": [""employees_only_in_performance"", ""employees_only_in_active_list""]
+    }
+  ]
+}
+```"
+"dict_items([('sales_data_2023', {'shape': (100, 4), 'dtypes': {'product_id': dtype('O'), 'region': dtype('O'), 'sales_amount': dtype('float64'), 'quarter': dtype('O')}})])",I need to pivot the sales data to show quarters as columns,"```json
+{
+  ""next_step"": ""execute_operation"",
+  ""operation"": [
+    {
+      ""tool_name"": ""reshape_long_to_wide"",
+      ""tool_args"": {
+        ""df"": ""sales_data_2023"",
+        ""column_to_use_as_headers"": ""quarter"",
+        ""column_with_values"": ""sales_amount"",
+        ""aggfunc"": ""sum""
+      },
+      ""output_df_names"": [""sales_data_pivoted""]
+    }
+  ]
+}
+```"
+"dict_items([('customer_orders', {'shape': (500, 5), 'dtypes': {'order_id': dtype('O'), 'customer_id': dtype('O'), 'product': dtype('O'), 'quantity': dtype('int64'), 'order_date': dtype('O')}}), ('customer_info', {'shape': (200, 3), 'dtypes': {'customer_id': dtype('O'), 'customer_name': dtype('O'), 'region': dtype('O')}})])",Merge customer information with order data,"```json
+{
+  ""next_step"": ""execute_operation"",
+  ""operation"": [
+    {
+      ""tool_name"": ""join_dataframes"",
+      ""tool_args"": {
+        ""left_df"": ""customer_orders"",
+        ""right_df"": ""customer_info"",
+        ""how"": ""left"",
+        ""left_on"": ""customer_id"",
+        ""right_on"": ""customer_id""
+      },
+      ""output_df_names"": [""orders_with_customer_info""]
+    }
+  ]
+}
+```"
+"dict_items([('inventory_2023', {'shape': (50, 3), 'dtypes': {'product_id': dtype('O'), 'warehouse': dtype('O'), 'stock_quantity': dtype('int64')}}), ('inventory_2024', {'shape': (50, 3), 'dtypes': {'product_id': dtype('O'), 'warehouse': dtype('O'), 'stock_quantity': dtype('int64')}})])",Combine inventory data from both years,"```json
+{
+  ""next_step"": ""execute_operation"",
+  ""operation"": [
+    {
+      ""tool_name"": ""stack_dataframes"",
+      ""tool_args"": {
+        ""dataframes"": [""inventory_2023"", ""inventory_2024""],
+        ""equivalent_columns"": {}
+      },
+      ""output_df_names"": [""combined_inventory""]
+    }
+  ]
+}
+```"
+"dict_items([('product_catalog', {'shape': (100, 4), 'dtypes': {'product_id': dtype('O'), 'product_name': dtype('O'), 'category': dtype('O'), 'price': dtype('float64')}})])",Remove duplicate products from the catalog,"```json
+{
+  ""next_step"": ""execute_operation"",
+  ""operation"": [
+    {
+      ""tool_name"": ""deduplicate_dataframe"",
+      ""tool_args"": {
+        ""df"": ""product_catalog"",
+        ""group_by_columns"": [""product_id""],
+        ""sort_column"": ""price"",
+        ""ascending"": true
+      },
+      ""output_df_names"": [""unique_products""]
+    }
+  ]
+}
+```"
