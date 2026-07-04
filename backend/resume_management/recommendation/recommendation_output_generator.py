@@ -1,8 +1,26 @@
+import logging
 import pandas as pd
-from typing import Dict, List
+from typing import Dict, List, Optional
 from utils.dataset_utils import load_df_from_csv, save_df_to_csv
 from backend.resume_management.storage.resume_sql_storage import get_full_resume
 import asyncio
+
+logger = logging.getLogger(__name__)
+
+# 简历详情的标准列，用于全部详情获取失败时构造带列名的空表
+RESUME_DETAIL_COLUMNS = ["resume_id", "characteristics", "experience", "skills_overview"]
+
+
+def build_resume_details_df(resume_details: List[Optional[Dict]]) -> pd.DataFrame:
+    """由单份简历详情列表构造 DataFrame。
+
+    过滤掉获取失败的 None 项；当全部失败（有效列表为空）时，返回带列名的空表，
+    避免 pd.DataFrame([]) 产生无列 DataFrame，导致后续按 resume_id 合并时抛 KeyError。
+    """
+    valid_details = [detail for detail in resume_details if detail is not None]
+    if not valid_details:
+        return pd.DataFrame(columns=RESUME_DETAIL_COLUMNS)
+    return pd.DataFrame(valid_details)
 
 
 class RecommendationOutputGenerator:
@@ -55,22 +73,13 @@ class RecommendationOutputGenerator:
             self.fetch_single_resume_details(resume_id) for resume_id in top_resume_ids
         ]
         resume_details = await asyncio.gather(*tasks)
-        resume_details = [detail for detail in resume_details if detail is not None]
-
-        if not resume_details:
-            # 详情全部获取失败时，pd.DataFrame([]) 会产生无列 DataFrame，
-            # 导致后续按 resume_id 合并时抛 KeyError；此处显式构造带列名的空表
-            resume_details_df = pd.DataFrame(
-                columns=["resume_id", "characteristics", "experience", "skills_overview"]
-            )
-        else:
-            resume_details_df = pd.DataFrame(resume_details)
+        resume_details_df = build_resume_details_df(resume_details)
 
         merged_df = pd.merge(
             ranked_resume_scores, resume_details_df, on="resume_id", how="left"
         )
 
-        print("已获取候选简历的详细信息")
+        logger.info("已获取候选简历的详细信息")
         return merged_df
 
     async def prepare_final_output(

@@ -17,7 +17,7 @@ from utils.vector_db_utils import (
     initialize_vector_store,
     search_in_milvus,
 )
-from utils.llm_tools import CustomEmbeddings
+from utils.llm_tools import create_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,7 @@ class QueryExampleRetriever:
         # 初始化查询示例集合（集合不存在时会抛出 ValueError）
         self.collection = initialize_vector_store("query_examples")
         # 初始化embedding模型
-        self.embeddings = CustomEmbeddings(
-            api_key=os.getenv("EMBEDDING_API_KEY", ""),
-            api_url=os.getenv("EMBEDDING_API_BASE", ""),
-            model=os.getenv("EMBEDDING_MODEL", ""),
-        )
+        self.embeddings = create_embeddings()
 
     def retrieve_examples(
         self, query: str, top_k: int = 2

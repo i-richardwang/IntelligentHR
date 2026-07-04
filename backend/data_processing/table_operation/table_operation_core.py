@@ -12,7 +12,7 @@ from langchain_core.tools import tool
 from backend.data_processing.table_operation.table_operation_models import (
     AssistantResponse,
 )
-from utils.llm_tools import LanguageModelChain, init_language_model, CustomEmbeddings
+from utils.llm_tools import LanguageModelChain, init_language_model, create_embeddings
 from utils.vector_db_utils import (
     connect_to_milvus,
     initialize_vector_store,
@@ -129,11 +129,7 @@ def get_similar_tools(query: str, top_k: int = 3) -> str:
     connect_to_milvus(db_name=os.getenv("VECTOR_DB_DATABASE", "examples"))
     collection = initialize_vector_store("tools_description")
 
-    embeddings = CustomEmbeddings(
-        api_key=os.getenv("EMBEDDING_API_KEY"),
-        api_url=os.getenv("EMBEDDING_API_BASE"),
-        model=os.getenv("EMBEDDING_MODEL"),
-    )
+    embeddings = create_embeddings()
     query_vector = embeddings.embed_query(query)
 
     # 检索更多结果以便进行去重
@@ -190,11 +186,7 @@ def get_similar_example(
     collection = initialize_vector_store(collection_name)
 
     # 获取查询向量
-    embeddings = CustomEmbeddings(
-        api_key=os.getenv("EMBEDDING_API_KEY"),
-        api_url=os.getenv("EMBEDDING_API_BASE"),
-        model=os.getenv("EMBEDDING_MODEL"),
-    )
+    embeddings = create_embeddings()
     query_vector = embeddings.embed_query(query)
 
     # 搜索相似向量

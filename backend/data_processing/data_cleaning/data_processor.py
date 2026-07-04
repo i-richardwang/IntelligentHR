@@ -2,7 +2,7 @@ import os
 from typing import List, Dict, Callable
 from pymilvus import Collection
 
-from utils.llm_tools import CustomEmbeddings
+from utils.llm_tools import create_embeddings
 from utils.vector_db_utils import (
     connect_to_milvus,
     initialize_vector_store as init_store,
@@ -20,11 +20,7 @@ def get_entity_retriever(collection: Collection, entity_type: str) -> Callable:
     """获取实体检索器"""
 
     async def retriever(query: str, k: int = 1) -> List[Dict]:
-        embedding_model = CustomEmbeddings(
-            api_key=os.getenv("EMBEDDING_API_KEY", ""),
-            api_url=os.getenv("EMBEDDING_API_BASE", ""),
-            model=os.getenv("EMBEDDING_MODEL", ""),
-        )
+        embedding_model = create_embeddings()
         query_embedding = await embedding_model.aembed_query(query)
 
         # 获取原始名称字段

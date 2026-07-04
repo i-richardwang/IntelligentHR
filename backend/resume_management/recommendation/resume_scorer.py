@@ -1,28 +1,43 @@
 import os
+import logging
 import pandas as pd
 import time
 import numpy as np
 from pymilvus import Collection, connections
-from typing import List, Dict, Tuple
-from openai import AsyncOpenAI
+from typing import List, Dict, Tuple, Optional
 import asyncio
+
+from utils.llm_tools import create_embeddings
+
+logger = logging.getLogger(__name__)
+
+# Milvus 的 topk(limit) 硬上限：自建 Milvus 为 16384，超过该上限直接传入会导致 search 抛错
+MILVUS_TOPK_LIMIT = 16384
+
+
+def clamp_milvus_limit(num_entities: int) -> int:
+    """将 Milvus search 的 limit 收敛到合法区间 [1, MILVUS_TOPK_LIMIT]。
+
+    集合可能为空（num_entities<=0，此时 limit 必须 >=1），或实体数超过 topk 硬上限，
+    两种情况直接传入 search 都会抛错，故统一封顶。
+    """
+    return min(max(num_entities, 1), MILVUS_TOPK_LIMIT)
 
 
 class ResumeScorer:
     """简历评分器，负责计算简历的得分"""
 
     def __init__(self):
-        self.client = AsyncOpenAI(
-            base_url="https://api.siliconflow.cn/v1",
-            api_key=os.getenv("EMBEDDING_API_KEY"),
-        )
+        # 统一走项目 embedding 工厂：端点 / 密钥 / 模型均来自环境变量，
+        # 不再硬编码供应商 base_url，保证与全项目 embedding 口径一致
+        self.embeddings = create_embeddings()
         self.connection_args = {
             "host": os.getenv("VECTOR_DB_HOST", "localhost"),
             "port": os.getenv("VECTOR_DB_PORT", "19530"),
             "db_name": os.getenv("VECTOR_DB_DATABASE_RESUME", "resume"),
         }
 
-    async def get_embedding(self, text: str) -> List[float]:
+    async def get_embedding(self, text: str) -> Optional[List[float]]:
         """
         异步获取文本的嵌入向量。
 
@@ -30,18 +45,16 @@ class ResumeScorer:
             text (str): 输入文本
 
         Returns:
-            List[float]: 嵌入向量，如果出现错误则返回 None
+            Optional[List[float]]: 嵌入向量，如果出现错误则返回 None
         """
         max_retries = 3
         for _ in range(max_retries):
             try:
-                response = await self.client.embeddings.create(
-                    model=os.getenv("EMBEDDING_MODEL", ""), input=text
-                )
+                embedding = await self.embeddings.aembed_query(text)
                 await asyncio.sleep(0.07)  # 避免频繁请求
-                return response.data[0].embedding
+                return embedding
             except Exception as e:
-                print(f"获取嵌入向量时出错：{e}")
+                logger.warning(f"获取嵌入向量时出错：{e}")
                 if len(text) <= 1:
                     return None
                 text = text[: int(len(text) * 0.9)]  # 缩短文本长度并重试
@@ -81,15 +94,13 @@ class ResumeScorer:
             field_name = query["field_name"]
             query_vector = await self.get_embedding(query["query_content"])
             if query_vector is None:
-                print(f"无法为字段 {field_name} 获取嵌入向量，跳过此查询")
+                logger.warning(f"无法为字段 {field_name} 获取嵌入向量，跳过此查询")
                 continue
 
             search_params = {"metric_type": "IP", "params": {"nprobe": 10}}
-            # Milvus 的 topk(limit) 存在硬上限（自建 Milvus 为 16384），
-            # 集合实体数超过该上限时直接传入会导致 search 抛错，故封顶
-            limit = min(max(collection.num_entities, 1), 16384)
+            limit = clamp_milvus_limit(collection.num_entities)
 
-            print(
+            logger.info(
                 f"集合: {collection.name} 的实体数量: {collection.num_entities} limit: {limit}"
             )
 
@@ -230,6 +241,6 @@ class ResumeScorer:
         ]
         df = df[column_order]
 
-        print(f"已完成简历评分，正在筛选最佳匹配的 {top_n} 份简历")
+        logger.info(f"已完成简历评分，正在筛选最佳匹配的 {top_n} 份简历")
 
         return df

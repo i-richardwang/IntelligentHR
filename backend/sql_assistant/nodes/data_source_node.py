@@ -21,7 +21,7 @@ from utils.vector_db_utils import (
     initialize_vector_store,
     search_in_milvus,
 )
-from utils.llm_tools import CustomEmbeddings, init_language_model, LanguageModelChain
+from utils.llm_tools import create_embeddings, init_language_model, LanguageModelChain
 
 logger = logging.getLogger(__name__)
 
@@ -88,11 +88,7 @@ class DataSourceMatcher:
         # 初始化表描述集合
         self.collection = initialize_vector_store("table_descriptions")
         # 初始化embedding模型
-        self.embeddings = CustomEmbeddings(
-            api_key=os.getenv("EMBEDDING_API_KEY", ""),
-            api_url=os.getenv("EMBEDDING_API_BASE", ""),
-            model=os.getenv("EMBEDDING_MODEL", ""),
-        )
+        self.embeddings = create_embeddings()
 
     def find_candidate_tables(
         self, query: str, top_k: int = 10

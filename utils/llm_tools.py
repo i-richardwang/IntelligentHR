@@ -3,7 +3,7 @@ import time
 import logging
 import traceback
 from typing import Any, Dict, List, Tuple, Optional, Type, Union
-import requests
+import httpx
 
 import pandas as pd
 from tqdm import tqdm
@@ -314,35 +314,62 @@ def batch_process_data(
 
 
 class CustomEmbeddings(Embeddings):
+    """OpenAI 兼容的自定义 Embeddings 客户端。
+
+    面向 OpenAI 兼容的 /embeddings 端点（如 SiliconFlow 上的 BAAI/bge 系列），
+    逐条文本发起请求。同时提供同步与原生异步实现——异步版本覆写了 LangChain
+    Embeddings 基类默认的线程池实现，以获得真正的并发能力（基类文档明确允许
+    出于性能考虑覆写异步方法）。
+    """
+
     def __init__(
         self,
         api_key: str,
         api_url: str,
         model: str,
+        *,
+        timeout: float = 30.0,
     ):
         self.api_key = api_key
         self.api_url = api_url
         self.model = model
+        self.timeout = timeout
 
-    def _get_embeddings(self, texts: List[str]) -> List[List[float]]:
-        headers = {
+    def _headers(self) -> Dict[str, str]:
+        return {
             "accept": "application/json",
             "authorization": f"Bearer {self.api_key}",
             "content-type": "application/json",
         }
 
-        all_embeddings = []
+    def _payload(self, text: str) -> Dict[str, Any]:
+        return {"model": self.model, "input": text, "encoding_format": "float"}
 
-        for text in texts:
-            payload = {"model": self.model, "input": text, "encoding_format": "float"}
+    @staticmethod
+    def _parse_embedding(data: Dict[str, Any]) -> List[float]:
+        return data["data"][0]["embedding"]
 
-            response = requests.post(self.api_url, headers=headers, json=payload)
-            response.raise_for_status()  # Raises an HTTPError for bad responses
+    def _get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        with httpx.Client(timeout=self.timeout) as client:
+            embeddings: List[List[float]] = []
+            for text in texts:
+                response = client.post(
+                    self.api_url, headers=self._headers(), json=self._payload(text)
+                )
+                response.raise_for_status()
+                embeddings.append(self._parse_embedding(response.json()))
+            return embeddings
 
-            embedding = response.json()["data"][0]["embedding"]
-            all_embeddings.append(embedding)
-
-        return all_embeddings
+    async def _aget_embeddings(self, texts: List[str]) -> List[List[float]]:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            embeddings: List[List[float]] = []
+            for text in texts:
+                response = await client.post(
+                    self.api_url, headers=self._headers(), json=self._payload(text)
+                )
+                response.raise_for_status()
+                embeddings.append(self._parse_embedding(response.json()))
+            return embeddings
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         return self._get_embeddings(texts)
@@ -350,26 +377,78 @@ class CustomEmbeddings(Embeddings):
     def embed_query(self, text: str) -> List[float]:
         return self._get_embeddings([text])[0]
 
+    async def aembed_documents(self, texts: List[str]) -> List[List[float]]:
+        return await self._aget_embeddings(texts)
+
+    async def aembed_query(self, text: str) -> List[float]:
+        return (await self._aget_embeddings([text]))[0]
+
+
+def create_embeddings(model: Optional[str] = None) -> CustomEmbeddings:
+    """创建统一配置的 Embeddings 客户端（工厂）。
+
+    从环境变量读取 embedding 服务配置，消除各调用点重复构造 CustomEmbeddings
+    的样板，并确保全项目 embedding 的端点 / 密钥 / 模型来源一致（避免出现某处
+    硬编码供应商 base_url、换供应商换不掉的问题）。
+
+    Args:
+        model: 可选的模型名覆盖；缺省时使用环境变量 EMBEDDING_MODEL。
+
+    Returns:
+        CustomEmbeddings: 已配置好的 embedding 客户端。
+
+    Raises:
+        ValueError: 当缺少必要的环境变量配置时抛出（快速失败，避免延迟到请求时才报错）。
+    """
+    api_key = os.getenv("EMBEDDING_API_KEY")
+    api_url = os.getenv("EMBEDDING_API_BASE")
+    model = model or os.getenv("EMBEDDING_MODEL")
+
+    missing = [
+        name
+        for name, value in (
+            ("EMBEDDING_API_KEY", api_key),
+            ("EMBEDDING_API_BASE", api_url),
+            ("EMBEDDING_MODEL", model),
+        )
+        if not value
+    ]
+    if missing:
+        raise ValueError(
+            f"缺少 embedding 服务配置，请设置环境变量：{', '.join(missing)}"
+        )
+
+    return CustomEmbeddings(api_key=api_key, api_url=api_url, model=model)
+
 
 class VectorEncoder:
+    """文本向量编码器，编码失败时自动截断文本重试。
+
+    embedding 客户端延迟初始化：避免在模块导入期就强制要求 embedding 环境变量
+    （本类常被在模块级实例化），仅在首次实际编码时才创建。
+    """
+
     def __init__(
         self,
         model: str,
     ):
-        self.embeddings = CustomEmbeddings(
-            api_key=os.getenv("EMBEDDING_API_KEY", ""),
-            api_url=os.getenv("EMBEDDING_API_BASE", ""),
-            model=model,
-        )
+        self.model = model
+        self._embeddings: Optional[CustomEmbeddings] = None
+
+    @property
+    def embeddings(self) -> CustomEmbeddings:
+        if self._embeddings is None:
+            self._embeddings = create_embeddings(model=self.model)
+        return self._embeddings
 
     def get_embedding(self, text: str) -> Optional[List[float]]:
         while True:
             try:
                 return self.embeddings.embed_query(text)
-            except Exception as e:
+            except Exception:
                 if len(text) <= 1:
-                    print(f"文本太短，无法进一步截断。中止操作。")
+                    logger.error("文本太短，无法进一步截断。中止操作。")
                     return None
                 text = text[: int(len(text) * 0.9)]
                 time.sleep(0.1)
-                print(f"截断文本至 {len(text)} 个字符并重试...")
+                logger.warning(f"截断文本至 {len(text)} 个字符并重试...")

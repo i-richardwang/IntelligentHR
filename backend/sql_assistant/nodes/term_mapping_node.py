@@ -14,7 +14,7 @@ from utils.vector_db_utils import (
     initialize_vector_store,
     search_in_milvus,
 )
-from utils.llm_tools import CustomEmbeddings
+from utils.llm_tools import create_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +33,7 @@ class DomainTermMapper:
         # 初始化术语描述集合
         self.collection = initialize_vector_store("term_descriptions")
         # 初始化embedding模型
-        self.embeddings = CustomEmbeddings(
-            api_key=os.getenv("EMBEDDING_API_KEY", ""),
-            api_url=os.getenv("EMBEDDING_API_BASE", ""),
-            model=os.getenv("EMBEDDING_MODEL", ""),
-        )
+        self.embeddings = create_embeddings()
 
     def find_standard_terms(
         self, keywords: List[str], similarity_threshold: float = 0.9

@@ -17,7 +17,7 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
-from utils.llm_tools import init_language_model, CustomEmbeddings
+from utils.llm_tools import init_language_model, create_embeddings
 from langchain_core.prompts import ChatPromptTemplate
 from utils.langfuse_tools import get_langfuse_config
 
@@ -246,11 +246,7 @@ def build_knowledge_base_ui():
                     splits = text_splitter.split_documents(st.session_state.loaded_documents)
                     
                     # 2. 初始化嵌入模型
-                    embeddings = CustomEmbeddings(
-                        api_key=os.getenv("EMBEDDING_API_KEY", ""),
-                        api_url=os.getenv("EMBEDDING_API_BASE", ""),
-                        model=embedding_model_name,
-                    )
+                    embeddings = create_embeddings(model=embedding_model_name)
                     
                     # 3. 创建向量存储
                     from langchain_community.vectorstores import FAISS

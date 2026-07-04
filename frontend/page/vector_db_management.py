@@ -12,7 +12,7 @@ from pymilvus import Collection, utility
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from utils.llm_tools import CustomEmbeddings
+from utils.llm_tools import create_embeddings
 from utils.vector_db_utils import (
     connect_to_milvus,
     initialize_vector_store,
@@ -42,11 +42,7 @@ def insert_examples_to_milvus(
     """将示例插入到Milvus数据库"""
     connect_to_milvus(db_name)
 
-    embeddings = CustomEmbeddings(
-        api_key=os.getenv("EMBEDDING_API_KEY", ""),
-        api_url=os.getenv("EMBEDDING_API_BASE", ""),
-        model=os.getenv("EMBEDDING_MODEL", ""),
-    )
+    embeddings = create_embeddings()
 
     data = []
     vectors = {}

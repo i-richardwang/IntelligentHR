@@ -4,7 +4,7 @@ SQL生成节点模块。
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Dict
 from datetime import datetime
 import logging
 
@@ -16,6 +16,19 @@ from backend.sql_assistant.utils.format_utils import (
 from utils.llm_tools import init_language_model, LanguageModelChain
 
 logger = logging.getLogger(__name__)
+
+
+def format_query_examples(query_examples: List[Dict[str, str]]) -> str:
+    """将检索到的查询示例格式化为少样本（few-shot）提示文本。
+
+    无示例时返回占位提示，避免向模型注入空字符串。
+    """
+    if not query_examples:
+        return "暂无相关示例"
+    return "\n".join(
+        f"示例问题: [{example['query_text']}]\n示例SQL: [{example['query_sql']}]"
+        for example in query_examples
+    )
 
 
 class SQLGenerationResult(BaseModel):
@@ -98,13 +111,7 @@ def sql_generation_node(state: SQLAssistantState) -> dict:
                 state.get("domain_term_mappings", {})
             ),
             "current_date": datetime.now().strftime("%Y-%m-%d"),
-            "query_examples": "\n".join(
-                [
-                    f"示例问题: [{example['query_text']}]\n示例SQL: [{example['query_sql']}]"
-                    for example in state.get("query_examples", [])
-                ]
-            )
-            or "暂无相关示例",
+            "query_examples": format_query_examples(state.get("query_examples", [])),
         }
 
         generation_chain = create_sql_generation_chain()

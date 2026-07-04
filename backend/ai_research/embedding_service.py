@@ -2,7 +2,7 @@
 import os
 from typing import List, Optional
 from langchain_core.embeddings import Embeddings
-from utils.llm_tools import CustomEmbeddings
+from utils.llm_tools import create_embeddings
 
 
 class Memory:
@@ -23,11 +23,7 @@ class Memory:
         headers = headers or {}
 
         if embedding_provider == "openai":
-            self._embeddings = CustomEmbeddings(
-                api_key=os.getenv("EMBEDDING_API_KEY", ""),
-                api_url=os.getenv("EMBEDDING_API_BASE", ""),
-                model=os.getenv("EMBEDDING_MODEL", ""),
-            )
+            self._embeddings = create_embeddings()
         else:
             raise ValueError("不支持的嵌入提供者。")
 
