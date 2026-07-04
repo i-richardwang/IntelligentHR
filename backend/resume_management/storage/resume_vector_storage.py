@@ -9,7 +9,6 @@ import json
 from typing import Dict, Any, List, Union
 from datetime import datetime
 import pandas as pd
-from pymilvus import connections, Collection
 
 from utils.llm_tools import VectorEncoder
 from utils.vector_db_utils import (
@@ -19,6 +18,7 @@ from utils.vector_db_utils import (
     insert_to_milvus,
     update_milvus_records,
     search_in_milvus,
+    delete_from_milvus,
 )
 from backend.resume_management.storage.resume_db_operations import get_minio_link
 import logging
@@ -158,9 +158,6 @@ def store_resume_in_milvus(resume_data: Dict[str, Any]):
 
     except Exception as e:
         raise Exception(f"存储简历数据时出错: {str(e)}")
-    finally:
-        connections.disconnect("default")
-
 
 def store_raw_resume_text_in_milvus(resume_id: str, raw_text: str, file_name: str):
     """
@@ -207,9 +204,6 @@ def store_raw_resume_text_in_milvus(resume_id: str, raw_text: str, file_name: st
 
     except Exception:
         logger.exception("存储简历原文出错")
-    finally:
-        connections.disconnect("default")
-
 
 def search_similar_resumes(
     raw_text: str, top_k: int = 5, threshold: float = 0.9
@@ -244,9 +238,6 @@ def search_similar_resumes(
     except Exception as e:
         logger.error(f"Error searching for similar resumes: {str(e)}")
         return []
-    finally:
-        connections.disconnect("default")
-
 
 def delete_resume_from_milvus(resume_id: str):
     """
@@ -262,9 +253,7 @@ def delete_resume_from_milvus(resume_id: str):
         collection = initialize_vector_store(collection_name)
 
         expr = f'resume_id == "{resume_id}"'
-        collection.delete(expr)
+        delete_from_milvus(collection, expr)
         logger.info(f"成功从Milvus中删除简历ID: {resume_id}")
     except Exception as e:
         logger.error(f"从Milvus删除简历时出错: {str(e)}")
-    finally:
-        connections.disconnect("default")

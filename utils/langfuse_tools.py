@@ -136,15 +136,21 @@ def get_langfuse_config(
     callbacks.append(handler)
     config["callbacks"] = callbacks
 
+    # Langfuse v4 约定：propagated metadata 为 dict[str, str]，非字符串值会被强制
+    # 转换、超过 200 字符的值会被丢弃并告警。这里主动把 session_id/user_id 及自定义
+    # metadata 的值统一转成字符串，规避隐式转换告警；langfuse_tags 是特殊键，保持
+    # list 形态由集成层消费。
     md: Dict[str, Any] = dict(config.get("metadata", {}))
     if session_id is not None:
-        md["langfuse_session_id"] = session_id
+        md["langfuse_session_id"] = str(session_id)
     if tags:
         md["langfuse_tags"] = list(tags)
     if user_id is not None:
-        md["langfuse_user_id"] = user_id
+        md["langfuse_user_id"] = str(user_id)
     if metadata:
-        md.update(metadata)
+        md.update(
+            {k: v if isinstance(v, str) else str(v) for k, v in metadata.items()}
+        )
     config["metadata"] = md
 
     return config

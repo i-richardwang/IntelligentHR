@@ -252,8 +252,8 @@ def dataframe_to_batched_texts(
     if random_seed is not None:
         random.seed(random_seed)
 
-    # 预处理文本
-    df[cols] = df[cols].applymap(clean_text)
+    # 预处理文本（pandas 3.0 移除了 DataFrame.applymap，改用等价的 DataFrame.map）
+    df[cols] = df[cols].map(clean_text)
     all_texts = df[cols].values.flatten().tolist()
     random.shuffle(all_texts)
 

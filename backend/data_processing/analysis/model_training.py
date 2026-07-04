@@ -442,7 +442,7 @@ def display_model_record_table(df: pd.DataFrame, columns_order: list) -> pd.Data
         ],
         hide_index=True,
         column_order=columns_order,
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -663,7 +663,7 @@ def display_shap_importance() -> None:
         fig = create_shap_importance_plot(
             st.session_state.shap_results["feature_importance"]
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         with st.expander("SHAP特征重要性解释", expanded=False):
             st.markdown(SHAP_FEATURE_IMPORTANCE_EXPLANATION)
@@ -684,7 +684,7 @@ def display_shap_dependence() -> None:
             np.array(processed_feature_names),
             selected_feature,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         with st.expander("SHAP依赖图解释", expanded=False):
             st.markdown(SHAP_DEPENDENCE_PLOT_EXPLANATION)

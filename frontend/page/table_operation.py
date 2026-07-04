@@ -91,7 +91,7 @@ def display_workflow():
 
             with col1:
                 image = Image.open("frontend/assets/table_operation_workflow.png")
-                st.image(image, caption="智能数据整理流程图", use_container_width=True)
+                st.image(image, caption="智能数据整理流程图", width="stretch")
 
             with col2:
                 st.markdown(
@@ -296,7 +296,7 @@ def display_loaded_dataframes():
             df = st.session_state.workflow.get_dataframe(name)
 
             # 显示数据预览
-            st.dataframe(df.head(5), use_container_width=True)
+            st.dataframe(df.head(5), width="stretch")
 
             # 显示简要信息
             st.caption(f"行数: {info['shape'][0]}, 列数: {info['shape'][1]}")
@@ -378,7 +378,7 @@ def display_feedback():
             yes_button = st.button(
                 "👍 是",
                 key="feedback_yes",
-                use_container_width=True,
+                width="stretch",
                 disabled=st.session_state.feedback_given,
             )
             if yes_button and not st.session_state.feedback_given:
@@ -391,7 +391,7 @@ def display_feedback():
             no_button = st.button(
                 "👎 否",
                 key="feedback_no",
-                use_container_width=True,
+                width="stretch",
                 disabled=st.session_state.feedback_given,
             )
             if no_button and not st.session_state.feedback_given:

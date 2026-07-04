@@ -199,7 +199,7 @@ def preview_loaded_documents():
             # 显示预览表格
             st.dataframe(
                 pd.DataFrame(preview_data),
-                use_container_width=True
+                width="stretch"
             )
             
             if len(st.session_state.loaded_documents) > 10:

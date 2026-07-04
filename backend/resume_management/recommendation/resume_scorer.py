@@ -3,11 +3,15 @@ import logging
 import pandas as pd
 import time
 import numpy as np
-from pymilvus import Collection, connections
 from typing import List, Dict, Tuple, Optional
 import asyncio
 
 from utils.llm_tools import create_embeddings
+from utils.vector_db_utils import (
+    connect_to_milvus,
+    get_milvus_client,
+    get_num_entities,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +67,7 @@ class ResumeScorer:
 
     async def calculate_resume_scores_for_collection(
         self,
-        collection: Collection,
+        collection_name: str,
         query_contents: List[Dict[str, str]],
         field_relevance_scores: Dict[str, float],
         scoring_method: str = "hybrid",
@@ -76,7 +80,7 @@ class ResumeScorer:
         异步计算单个集合中简历的得分。
 
         Args:
-            collection (Collection): Milvus集合
+            collection_name (str): Milvus 集合名称
             query_contents (List[Dict[str, str]]): 查询内容列表
             field_relevance_scores (Dict[str, float]): 字段相关性得分
             scoring_method (str): 评分方法，默认为'hybrid'
@@ -98,25 +102,27 @@ class ResumeScorer:
                 continue
 
             search_params = {"metric_type": "IP", "params": {"nprobe": 10}}
-            limit = clamp_milvus_limit(collection.num_entities)
+            num_entities = get_num_entities(collection_name)
+            limit = clamp_milvus_limit(num_entities)
 
             logger.info(
-                f"集合: {collection.name} 的实体数量: {collection.num_entities} limit: {limit}"
+                f"集合: {collection_name} 的实体数量: {num_entities} limit: {limit}"
             )
 
-            results = collection.search(
+            client = get_milvus_client()
+            results = client.search(
+                collection_name,
                 data=[query_vector],
                 anns_field=field_name,
-                param=search_params,
+                search_params=search_params,
                 limit=limit,
-                expr=None,
                 output_fields=["resume_id"],
             )
 
             for hits in results:
                 for hit in hits:
-                    resume_id = hit.entity.get("resume_id")
-                    similarity = hit.score
+                    resume_id = hit["entity"].get("resume_id")
+                    similarity = hit["distance"]
 
                     if similarity < similarity_threshold:
                         continue
@@ -172,11 +178,7 @@ class ResumeScorer:
         Returns:
             pd.DataFrame: 包含排名后的简历得分的DataFrame
         """
-        connections.connect(
-            host=self.connection_args["host"],
-            port=self.connection_args["port"],
-            db_name=self.connection_args["db_name"],
-        )
+        connect_to_milvus(db_name=self.connection_args["db_name"])
 
         all_scores = {}
 
@@ -187,7 +189,6 @@ class ResumeScorer:
             if collection_weight == 0:
                 return
 
-            collection = Collection(collection_name)
             collection_strategy = collection_search_strategies[collection_name]
 
             query_contents = []
@@ -202,11 +203,11 @@ class ResumeScorer:
                 field_relevance_scores[query.field_name] = query.relevance_score
 
             collection_scores = await self.calculate_resume_scores_for_collection(
-                collection=collection,
+                collection_name=collection_name,
                 query_contents=query_contents,
                 field_relevance_scores=field_relevance_scores,
                 scoring_method="hybrid",
-                max_results=collection.num_entities,
+                max_results=get_num_entities(collection_name),
                 top_similarities_count=3,
                 similarity_threshold=0.5,
                 decay_factor=0.35,

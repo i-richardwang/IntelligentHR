@@ -78,7 +78,7 @@ def display_feature_list(model_info: dict) -> None:
     """
     with st.expander("查看所需特征列表"):
         features_df = pd.DataFrame(model_info["features"], columns=["特征名称"])
-        st.dataframe(features_df, use_container_width=True)
+        st.dataframe(features_df, width="stretch")
 
 
 def display_model_performance(model_info: dict, problem_type: str) -> None:
@@ -167,7 +167,7 @@ def display_prediction_distribution() -> None:
     fig = create_prediction_distribution_plot(
         st.session_state.predictions, st.session_state.predictor.problem_type
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def display_prediction_preview() -> None:
@@ -180,7 +180,7 @@ def display_prediction_preview() -> None:
     else:
         original_data["预测值"] = st.session_state.predictions
 
-    st.dataframe(original_data, use_container_width=True)
+    st.dataframe(original_data, width="stretch")
 
 
 def provide_download_option() -> None:

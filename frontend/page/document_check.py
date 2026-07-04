@@ -78,7 +78,7 @@ def display_check_results(results: List[Dict[str, Any]]):
                 )
 
                 # 显示数据框
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df, width="stretch")
 
                 # 为每个修改创建一个详细视图
                 for correction in result["corrections"]:

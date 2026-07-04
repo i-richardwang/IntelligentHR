@@ -227,7 +227,7 @@ def display_workflow():
 
             with col1:
                 image = Image.open("frontend/assets/data_cleaning_workflow.png")
-                st.image(image, caption="自动化数据清洗流程图", use_container_width=True)
+                st.image(image, caption="自动化数据清洗流程图", width="stretch")
 
             with col2:
                 st.markdown(

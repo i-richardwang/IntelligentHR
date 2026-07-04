@@ -32,7 +32,7 @@ def main():
     st.markdown("---")
 
     image = Image.open("frontend/assets/IntelligentHR_Intro.png")
-    st.image(image, use_container_width=True)
+    st.image(image, width="stretch")
 
     display_feature_overview()
     display_project_highlights()
