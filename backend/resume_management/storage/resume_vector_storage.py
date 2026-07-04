@@ -26,8 +26,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# 初始化 embedding 服务
-embeddings = VectorEncoder(model="BAAI/bge-m3")
+# 初始化 embedding 服务：模型来源统一为环境变量 EMBEDDING_MODEL，与查询侧 create_embeddings
+# 同源，避免入库/查询 embedding 口径不一致导致相似度失真
+embeddings = VectorEncoder()
 
 # 加载集合配置
 COLLECTIONS_CONFIG_PATH = "data/config/collections_config.json"

@@ -423,11 +423,15 @@ class VectorEncoder:
 
     embedding 客户端延迟初始化：避免在模块导入期就强制要求 embedding 环境变量
     （本类常被在模块级实例化），仅在首次实际编码时才创建。
+
+    ``model`` 缺省为 ``None``，此时经工厂使用环境变量 ``EMBEDDING_MODEL``——与查询侧
+    :func:`create_embeddings` 同源，确保入库与查询使用同一 embedding 模型（不同模型的
+    向量不可比，口径不一致会导致相似度失真）。仅在确需覆盖时才显式传入 model。
     """
 
     def __init__(
         self,
-        model: str,
+        model: Optional[str] = None,
     ):
         self.model = model
         self._embeddings: Optional[CustomEmbeddings] = None

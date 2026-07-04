@@ -160,7 +160,10 @@ async def get_sub_queries(
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
 async def construct_subtopics(
-    task: str, data: str, config: Config, subtopics: List[Dict[str, str]] = []
+    task: str,
+    data: str,
+    config: Config,
+    subtopics: Optional[List[Dict[str, str]]] = None,
 ) -> List[Dict[str, str]]:
     """
     构建子主题
@@ -171,6 +174,8 @@ async def construct_subtopics(
     :param subtopics: 现有子主题列表
     :return: 构建的子主题列表
     """
+    if subtopics is None:
+        subtopics = []
     try:
         parser = JsonOutputParser(pydantic_object=Subtopics)
 
@@ -223,7 +228,7 @@ async def generate_report(
     cfg: Config,
     websocket: Any = None,
     main_topic: str = "",
-    existing_headers: List[str] = [],
+    existing_headers: Optional[List[str]] = None,
     cost_callback: Optional[callable] = None,
 ) -> str:
     """
@@ -242,6 +247,8 @@ async def generate_report(
     :param cost_callback: 成本回调函数（可选）
     :return: 生成的报告
     """
+    if existing_headers is None:
+        existing_headers = []
     generate_prompt = get_report_by_type(report_type)
 
     if report_type == "subtopic_report":

@@ -12,7 +12,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from utils.llm_tools import CustomEmbeddings, create_embeddings
+from utils.llm_tools import CustomEmbeddings, VectorEncoder, create_embeddings
 
 
 EMBED_ENV = {
@@ -113,3 +113,30 @@ def test_aembed_query_native():
         vec = asyncio.run(emb.aembed_query("hi"))
     assert vec == [0.4, 0.5]
     client.post.assert_awaited_once()
+
+
+# ---------------- 入库/查询 embedding 口径统一 ----------------
+#
+# 回归保护：入库侧曾硬编码 VectorEncoder(model="BAAI/bge-m3")，而查询侧走
+# create_embeddings()/EMBEDDING_MODEL。两侧模型不同则向量不可比、相似度失真。
+# 现入库侧改为 VectorEncoder()（model 缺省 -> EMBEDDING_MODEL），与查询侧同源。
+
+
+def test_vector_encoder_defaults_to_env_model(monkeypatch):
+    _set_env(monkeypatch, EMBEDDING_MODEL="env-model")
+    # 缺省 model -> 经工厂读取 EMBEDDING_MODEL
+    assert VectorEncoder().embeddings.model == "env-model"
+
+
+def test_ingestion_and_query_use_same_model(monkeypatch):
+    _set_env(monkeypatch, EMBEDDING_MODEL="single-source-model")
+    ingestion_model = VectorEncoder().embeddings.model  # 入库侧
+    query_model = create_embeddings().model  # 查询侧
+    # 单一真源：两侧解析到同一 embedding 模型
+    assert ingestion_model == query_model == "single-source-model"
+
+
+def test_vector_encoder_explicit_model_still_overrides(monkeypatch):
+    _set_env(monkeypatch, EMBEDDING_MODEL="env-model")
+    # 显式传入 model 时仍可覆盖（仅在确需时使用）
+    assert VectorEncoder(model="override").embeddings.model == "override"
