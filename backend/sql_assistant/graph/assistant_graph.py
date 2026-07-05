@@ -204,8 +204,13 @@ def run_sql_assistant(
 
     # 执行图
     try:
-        return graph.invoke(state_input, config)
+        result = graph.invoke(state_input, config)
+        # 回填本轮 thread_id：图状态本身不含该键，API/前端据此把会话ID回传客户端，
+        # 客户端下次携带同一 session_id 才能续接多轮对话（否则 api 返回的 session_id 恒空）。
+        if isinstance(result, dict):
+            result["thread_id"] = thread_id
+        return result
     except Exception as e:
         error_msg = f"SQL助手执行出错: {str(e)}"
         logger.error(error_msg)
-        return {"error": error_msg}
+        return {"error": error_msg, "thread_id": thread_id}

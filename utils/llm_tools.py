@@ -442,14 +442,34 @@ class VectorEncoder:
             self._embeddings = create_embeddings(model=self.model)
         return self._embeddings
 
+    # embedding 服务判定「输入过长」的常见错误特征（各供应商措辞不一，取并集做启发式匹配）
+    _LENGTH_ERROR_HINTS = (
+        "too long",
+        "maximum context",
+        "context length",
+        "context_length_exceeded",
+        "reduce the length",
+        "maximum number of tokens",
+        "string too long",
+        "request too large",
+        "413",
+    )
+
     def get_embedding(self, text: str) -> Optional[List[float]]:
         while True:
             try:
                 return self.embeddings.embed_query(text)
-            except Exception:
+            except Exception as e:
+                # 仅在「文本过长」类错误时才截断重试；鉴权(401)、网络超时、限流(429)等与
+                # 长度无关的错误越截越白跑，且最终返回 None 会让下游 _normalize(None) 抛
+                # TypeError 掩盖真因。故非长度类错误直接抛出，让调用方看到真实原因。
+                msg = str(e).lower()
+                if not any(hint in msg for hint in self._LENGTH_ERROR_HINTS):
+                    logger.error("获取 embedding 失败（非长度类错误，中止）：%s", e)
+                    raise
                 if len(text) <= 1:
-                    logger.error("文本太短，无法进一步截断。中止操作。")
+                    logger.error("文本已无法再截断，放弃获取 embedding。")
                     return None
                 text = text[: int(len(text) * 0.9)]
                 time.sleep(0.1)
-                logger.warning(f"截断文本至 {len(text)} 个字符并重试...")
+                logger.warning("文本过长，截断至 %d 个字符后重试……", len(text))

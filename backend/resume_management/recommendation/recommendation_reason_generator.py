@@ -84,6 +84,7 @@ class RecommendationReasonGenerator:
             }
             for dimension in [
                 "work_experiences",
+                "project_experiences",
                 "skills",
                 "educations",
                 "personal_infos",

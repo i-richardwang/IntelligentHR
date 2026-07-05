@@ -152,8 +152,16 @@ def error_analysis_node(state: SQLAssistantState) -> dict:
             }
         }
 
-        # 只有在有用户反馈时才添加消息
-        if result.get("user_feedback"):
+        # 不可自动修复是终端分支：必须给用户一条明确反馈，否则 api/前端会把用户原始提问
+        # 当作助手回复回显。可修复时保留原行为（有反馈才追加，随后回到执行流程重试）。
+        if not result["is_sql_fixable"]:
+            response["messages"] = [
+                AIMessage(
+                    content=result.get("user_feedback")
+                    or "抱歉，本次查询执行失败且无法自动修复。请调整问题描述后重试，或联系数据团队协助。"
+                )
+            ]
+        elif result.get("user_feedback"):
             response["messages"] = [AIMessage(content=result["user_feedback"])]
 
         return response

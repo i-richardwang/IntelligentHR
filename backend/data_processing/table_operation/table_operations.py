@@ -56,11 +56,13 @@ def join_dataframes(
         left_on = [left_on] if isinstance(left_on, str) else left_on
         right_on = [right_on] if isinstance(right_on, str) else right_on
 
-        # Ensure columns used for merging are included in left_columns and right_columns
+        # Ensure columns used for merging are included in left_columns and right_columns.
+        # 用 dict.fromkeys 去重同时保序：list(set(...)) 的列序依赖哈希、进程每次重启都变，
+        # 结果 DataFrame 的列顺序随之不确定；此写法保留用户指定的列序并把 join key 追加在后。
         if left_columns is not None:
-            left_columns = list(set(left_columns + left_on))
+            left_columns = list(dict.fromkeys(left_columns + left_on))
         if right_columns is not None:
-            right_columns = list(set(right_columns + right_on))
+            right_columns = list(dict.fromkeys(right_columns + right_on))
 
         # Select columns to include
         if left_columns is not None:
@@ -181,11 +183,15 @@ def reshape_long_to_wide(
         ]
 
         # Perform long to wide reshaping
+        # dropna 默认为 True 会静默丢弃：① 标识列（index）含 NaN 的整行；② 透视后
+        # 全为 NaN 的结果列。对业务数据（某 ID 缺失、某组合无值）这是隐性丢数据，
+        # 故显式置 False，保留完整行列，缺失位置留 NaN 交由使用方决定如何处理。
         wide_df = df.pivot_table(
             index=id_columns,
             columns=column_to_use_as_headers,
             values=column_with_values,
             aggfunc=aggfunc,
+            dropna=False,
         )
 
         # Reset column names, remove MultiIndex

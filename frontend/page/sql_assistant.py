@@ -10,7 +10,7 @@ import streamlit as st
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(project_root)
 
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 
 from frontend.ui_components import show_sidebar, show_footer, apply_common_styles
 from backend.sql_assistant.graph.assistant_graph import run_sql_assistant
@@ -34,7 +34,7 @@ def init_session_state():
         st.session_state.session_id = str(uuid.uuid4())
     if "checkpoint_saver" not in st.session_state:
         # 在整个会话内保持同一个状态保存器，保证多轮上下文可以延续
-        st.session_state.checkpoint_saver = MemorySaver()
+        st.session_state.checkpoint_saver = InMemorySaver()
 
 
 def display_info_message():

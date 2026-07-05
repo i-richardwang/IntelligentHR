@@ -99,11 +99,17 @@ def intent_analysis_node(state: SQLAssistantState) -> dict:
     result = analysis_chain.invoke({"query": dialogue_history})
     logger.info(f"意图分析结果: 意图清晰度={result['is_intent_clear']}, 澄清问题={result.get('clarification_question')}")
 
-    # 如果意图不明确，添加一个助手消息询问澄清
+    # 如果意图不明确，添加一个助手消息询问澄清。
+    # 意图不清是终端分支（需向用户追问）：必须产出一条 AIMessage，否则 api/前端会把用户
+    # 自己的提问当作助手回复回显。clarification_question 为空时用兜底话术。
     response = {}
-    if not result["is_intent_clear"] and result.get("clarification_question"):
+    if not result["is_intent_clear"]:
         response["messages"] = [
-            AIMessage(content=result["clarification_question"])]
+            AIMessage(
+                content=result.get("clarification_question")
+                or "能否请您补充更多细节（如涉及的数据范围、时间或指标），以便我更准确地理解您的查询需求？"
+            )
+        ]
 
     # 更新状态
     response.update({

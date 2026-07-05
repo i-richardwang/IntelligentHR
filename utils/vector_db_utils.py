@@ -33,15 +33,23 @@ import math
 import asyncio
 import logging
 import threading
+import contextvars
 from typing import List, Dict, Any, Optional
 
 import libsql
 
 logger = logging.getLogger(__name__)
 
-# 每个逻辑数据库一个 libSQL 连接，进程内缓存复用。
+# 每个逻辑数据库一个 libSQL 连接，进程内缓存复用（跨上下文共享，由 _lock 串行化）。
 _connections: Dict[str, "libsql.Connection"] = {}
-_current_db: str = "default"
+# 「当前库」用 ContextVar 而非模块级全局：Streamlit 多页/多会话各跑在独立 ScriptRunner
+# 线程与 asyncio 任务上下文中，用可变全局变量会被并发请求相互覆盖——A 页刚 connect 到
+# resume 库，B 页并发 connect 到 examples，A 随后的检索就落到 examples 上（查错库）。
+# ContextVar 在同一 asyncio 任务链与线程内相互隔离，且能随 asyncio.to_thread 拷贝进
+# 工作线程（asearch_in_milvus 依赖此点在线程池里仍读到调用方设定的库）。
+_current_db: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "vector_db_current", default="default"
+)
 # libSQL/SQLite 连接非线程安全；异步包装（asearch_in_milvus 经线程池）可能并发访问，
 # 统一用可重入锁串行化。demo 规模下串行完全够用。
 _lock = threading.RLock()
@@ -90,19 +98,18 @@ def connect_to_milvus(db_name: str = "default") -> "libsql.Connection":
     Returns:
         libsql.Connection: 绑定到目标 ``.db`` 文件的连接。
     """
-    global _current_db
     db = db_name or "default"
     _ident(db)
     with _lock:
         if db not in _connections:
             _connections[db] = libsql.connect(_db_path(db))
-        _current_db = db
+        _current_db.set(db)
         return _connections[db]
 
 
 def get_milvus_client() -> "libsql.Connection":
     """返回当前数据库的 libSQL 连接（尚未连接时以默认库建立）。"""
-    return connect_to_milvus(_current_db)
+    return connect_to_milvus(_current_db.get())
 
 
 def close_all() -> None:

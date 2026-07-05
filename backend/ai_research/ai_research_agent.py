@@ -150,11 +150,21 @@ async def get_sub_queries(
     messages = prompt.format_messages(question=query)
     response = await chat.ainvoke(messages)
 
+    # 用 JsonOutputParser 解析：它能剥离 ```json 代码围栏及前后解释性文字，比裸
+    # json.loads 健壮——后者一旦模型输出带围栏就整体失败、退化成仅一条原始查询。
     try:
-        sub_queries = json.loads(response.content)
-        return sub_queries
-    except json.JSONDecodeError:
-        logger.warning("解析JSON时出错。返回原始查询。")
+        parsed = JsonOutputParser().parse(response.content)
+        if isinstance(parsed, list):
+            return parsed
+        # 少数模型会包成 {"queries": [...]} / {"sub_queries": [...]}，取首个列表值兜底
+        if isinstance(parsed, dict):
+            for value in parsed.values():
+                if isinstance(value, list):
+                    return value
+        logger.warning("子查询解析结果非列表，返回原始查询。")
+        return [query]
+    except Exception:
+        logger.warning("解析子查询JSON失败，返回原始查询。")
         return [query]
 
 

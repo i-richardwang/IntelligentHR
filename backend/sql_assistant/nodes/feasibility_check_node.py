@@ -135,8 +135,15 @@ def feasibility_check_node(state: SQLAssistantState) -> dict:
             }
         }
 
-        if not result["is_feasible"] and result["user_feedback"]:
-            response["messages"] = [AIMessage(content=result["user_feedback"])]
+        # 不可行是终端分支：必须给用户一条明确反馈，否则 api/前端取 messages[-1] 恰好是
+        # 用户原始提问，等于把问题原样回显当答案。user_feedback 为空时用兜底话术。
+        if not result["is_feasible"]:
+            response["messages"] = [
+                AIMessage(
+                    content=result["user_feedback"]
+                    or "抱歉，根据现有表结构暂时无法完成该查询。请调整或补充需求后再试。"
+                )
+            ]
 
         return response
 

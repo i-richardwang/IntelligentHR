@@ -143,7 +143,10 @@ def prepare_data(
         X_test, y_test = pd.DataFrame(), pd.Series()
 
     categorical_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
-    numerical_cols = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
+    # 用 "number" 覆盖全部数值类型（int8/16/32、float16/32、可空 Int64/Float64），
+    # 并显式纳入 "bool"——旧的 ["int64","float64"] 会漏掉 int32/float32/bool 等特征列，
+    # 使它们既不进数值、也不进分类，被静默丢弃（用户勾选的布尔特征直接失踪）。
+    numerical_cols = X.select_dtypes(include=["number", "bool"]).columns.tolist()
 
     return X_train, X_test, y_train, y_test, categorical_cols, numerical_cols
 

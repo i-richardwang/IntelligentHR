@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from typing import List, Dict, Any, Tuple
 import logging
@@ -106,8 +107,14 @@ class LinearRegressionModel(BaseModel):
         )
         results["intercept"] = linear_model.intercept_
 
-        # 为了保持与其他模型一致的接口，我们将 train_mse 也赋值给 cv_mean_score
-        results["cv_mean_score"] = train_mse
+        # cv_mean_score 供 select_best_model 跨模型比较，必须与树模型（RF/XGB）的交叉验证
+        # MSE 同口径。旧实现直接塞入「训练集 MSE」——它同批数据拟合又预测、无泛化惩罚、
+        # 系统性偏低，回归任务按 idxmin 选最佳模型时会不公平地偏袒线性回归。改用 5 折
+        # 交叉验证 MSE（cross_val_score 内部克隆管道、不影响已在全量数据上拟合的 self.model）。
+        cv_scores = cross_val_score(
+            self.model, X_train, y_train, cv=5, scoring="neg_mean_squared_error"
+        )
+        results["cv_mean_score"] = float(-np.mean(cv_scores))
 
         return results
 

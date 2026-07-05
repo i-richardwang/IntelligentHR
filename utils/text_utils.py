@@ -117,7 +117,10 @@ def filter_invalid_text(df: pd.DataFrame, text_col: str) -> pd.DataFrame:
             or re.match(r"^[\s\p{P}]+$", text, re.UNICODE)
             or text.isdigit()
             or len(set(text)) == 1
-            or re.match(r"^(.)\1*(?:(.)\2*){0,2}$", text)
+            # 低信息重复文本（如 "aaabbb"/"ababab"/符号填充）：仅当足够长且不同字符
+            # 极少时才判无效。旧正则 ^(.)\1*(?:(.)\2*){0,2}$ 把任何「≤3 段不同字符」的
+            # 串一律判死，会误杀 "IBM"/"BMW"/"美团"/"阿里巴巴" 等真实短词与缩写。
+            or (len(text) >= 6 and len(set(text)) <= 2)
             or not re.search(r"[\p{L}\p{N}]", text, re.UNICODE)
         ):
             return False

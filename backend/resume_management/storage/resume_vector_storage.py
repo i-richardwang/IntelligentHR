@@ -102,8 +102,9 @@ def process_field(value: Any, field_name: str) -> str:
         # None / NaN 视为空串，避免被 str() 成字面量 "None"（会污染存储值与 embedding，
         # 且多份缺失同字段的简历以 "None" 相互碰撞）。
         return ""
-    if isinstance(value, str):
-        value = value.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
+    # 底层向量层（libSQL）标量列走参数化绑定（? 占位符），无需手工转义引号/反斜杠。
+    # 旧的转义（\\ / \" / \'）源自 Milvus 时代把值拼进表达式字符串的写法，如今会把
+    # 字面反斜杠注入存储文本与 embedding（英文简历的撇号全部中招），反而污染相似度。
     return str(value)
 
 

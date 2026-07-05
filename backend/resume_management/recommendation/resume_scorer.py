@@ -223,6 +223,17 @@ class ResumeScorer:
                     all_scores[resume_id][collection_name] = score * collection_weight
                     all_scores[resume_id]["total_score"] += score * collection_weight
 
+        column_order = ["resume_id", "total_score"] + [
+            info["collection_name"] for info in collection_relevances
+        ]
+
+        if not all_scores:
+            # 所有集合均无命中（相似度全低于阈值或空库）：返回带完整列的空表。
+            # 否则 from_dict({}) 得到无列 DataFrame，后续 sort_values("total_score")
+            # 抛 KeyError，冲掉上层「未找到合适简历」的提示、崩掉 Streamlit 回调。
+            logger.info("未找到任何达到相似度阈值的简历，返回空结果")
+            return pd.DataFrame(columns=column_order)
+
         df = pd.DataFrame.from_dict(all_scores, orient="index")
         df.index.name = "resume_id"
         df = df.reset_index()
@@ -233,9 +244,10 @@ class ResumeScorer:
             if collection_info["collection_name"] not in df.columns:
                 df[collection_info["collection_name"]] = 0
 
-        column_order = ["resume_id", "total_score"] + [
-            info["collection_name"] for info in collection_relevances
-        ]
+        # 部分集合命中、其余集合列为 NaN 的简历：统一补 0，避免把 NaN 分数透传给下游
+        # 推荐理由 LLM（显示成 "NaN"，观感与语义都不对）。
+        df = df.fillna(0)
+
         df = df[column_order]
 
         logger.info(f"已完成简历评分，正在筛选最佳匹配的 {top_n} 份简历")

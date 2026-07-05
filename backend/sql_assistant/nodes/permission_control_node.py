@@ -211,12 +211,24 @@ class PermissionValidator:
         Returns:
             str: 构建的子查询SQL
         """
-        # 构建REGEXP模式
-        patterns = [f"(^|>){dept_id}(>|$)" for dept_id in dept_paths]
-        regexp_pattern = "|".join(patterns)
+        # dept_path 字段以 ``>`` 分隔存储部门层级（如 ``1>2>3``）。旧实现用 REGEXP
+        # ``(^|>)id(>|$)`` 判定某部门是否为路径中的完整一段，但业务库已本地化为
+        # SQLite，其默认未注册 REGEXP 函数，该路径必然报 "no such function: REGEXP"。
+        # 改用等价的 LIKE：把字段两端补 ``>`` 归一为 ``>1>2>3>`` 后，段匹配即
+        # ``LIKE '%>id>%'``——既避免 id=1 命中 11，又与旧 REGEXP 语义逐段对齐，
+        # 且 MySQL/SQLite 通用。
+        conditions = []
+        for dept_id in dept_paths:
+            # dept_id 来自 user_department 表（通常为整数）；注入的子查询最终以字符串
+            # 形式并入 SQL 执行、无法参数化绑定，故转义单引号做纵深防御。
+            dept = str(dept_id).replace("'", "''")
+            conditions.append(
+                f"('>' || {dept_path_field} || '>') LIKE '%>{dept}>%'"
+            )
+        where_clause = " OR ".join(conditions) if conditions else "1=0"
 
         # 构建子查询
-        subquery = f"(SELECT * FROM {table_info.name} WHERE {dept_path_field} REGEXP '{regexp_pattern}')"
+        subquery = f"(SELECT * FROM {table_info.name} WHERE {where_clause})"
 
         # 总是添加别名，如果原SQL没有指定别名，则使用原表名作为别名
         alias = table_info.alias or table_info.name
@@ -276,15 +288,26 @@ class PermissionValidator:
                 auth_subquery = self._build_auth_subquery(table_info, field, dept_paths)
 
                 # 替换SQL中的原表引用
-                # 根据是否有别名构建不同的替换模式
+                # 根据是否有别名构建不同的替换模式（表名/别名先 re.escape，防止其中的
+                # 正则元字符被误解析）
                 if table_info.alias:
-                    pattern = rf"{table_info.name}\s+(?:AS\s+)?{table_info.alias}\b"
+                    pattern = (
+                        rf"{re.escape(table_info.name)}\s+(?:AS\s+)?"
+                        rf"{re.escape(table_info.alias)}\b"
+                    )
                 else:
-                    pattern = rf"\b{table_info.name}\b"
+                    # 无别名：仅替换「独立出现」的表名——要求前后都不接标识符字符或点号，
+                    # 避免把 employee.name 里限定列名的 employee、或别的表名子串误替换成子查询
+                    # （旧实现用 \b 会命中 employee.name 中的 employee，破坏列引用）。
+                    pattern = rf"(?<![\w.]){re.escape(table_info.name)}(?![\w.])"
 
-                # 在替换时忽略大小写
+                # 在替换时忽略大小写；用函数式替换避免 auth_subquery 中的 \g/\1 等被
+                # 当作 re 替换模板转义
                 modified_sql = re.sub(
-                    pattern, auth_subquery, modified_sql, flags=re.IGNORECASE
+                    pattern,
+                    lambda _m: auth_subquery,
+                    modified_sql,
+                    flags=re.IGNORECASE,
                 )
 
             # 记录修改后的SQL，方便调试
