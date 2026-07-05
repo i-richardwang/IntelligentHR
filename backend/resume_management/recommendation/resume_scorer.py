@@ -220,7 +220,7 @@ class ResumeScorer:
 
         df = pd.DataFrame.from_dict(all_scores, orient="index")
         df.index.name = "resume_id"
-        df.reset_index(inplace=True)
+        df = df.reset_index()
 
         df = df.sort_values("total_score", ascending=False).head(top_n)
 

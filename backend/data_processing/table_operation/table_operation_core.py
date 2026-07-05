@@ -254,11 +254,20 @@ def process_user_query(
         }
 
         logger.info(f"Processing user query: {user_input}")
-        result = assistant_chain.invoke(input_data, config=langfuse_config)
-
-        # 从本次调用的 CallbackHandler 取回 trace_id
+        # Langfuse v4：从包裹本次 invoke 的 span 取 trace_id。v4 的 langchain
+        # CallbackHandler 已移除 last_trace_id 属性，改由外层 span 提供 trace 上下文，
+        # CallbackHandler 会自动挂到同一 trace 下。仅在配置了 Langfuse（callbacks 非空）
+        # 时开 span 并取真实 trace_id；未配置时保持原降级语义（直接 invoke、trace_id 置 None）。
         handlers = langfuse_config.get("callbacks", [])
-        trace_id = handlers[-1].last_trace_id if handlers else None
+        if handlers:
+            with langfuse_client.start_as_current_observation(
+                name="process_user_query", as_type="span"
+            ) as span:
+                result = assistant_chain.invoke(input_data, config=langfuse_config)
+                trace_id = span.trace_id
+        else:
+            result = assistant_chain.invoke(input_data, config=langfuse_config)
+            trace_id = None
         result["trace_id"] = trace_id
 
         logger.info(f"Query processed successfully. Result: {result}")

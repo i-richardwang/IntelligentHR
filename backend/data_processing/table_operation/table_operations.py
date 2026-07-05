@@ -301,7 +301,7 @@ def stack_dataframes(
             for standard_col, equiv_cols in equivalent_columns.items():
                 for equiv_col in equiv_cols:
                     if equiv_col in temp_df.columns:
-                        temp_df.rename(columns={equiv_col: standard_col}, inplace=True)
+                        temp_df = temp_df.rename(columns={equiv_col: standard_col})
 
         temp_df["source_table"] = df_name
 

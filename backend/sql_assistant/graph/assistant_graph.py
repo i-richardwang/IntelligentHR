@@ -9,7 +9,7 @@ import os
 from typing import Dict, Any, Optional
 
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import HumanMessage
 from utils.langfuse_tools import get_langfuse_config
 
@@ -169,7 +169,7 @@ def run_sql_assistant(
 
     # 使用默认的内存存储器
     if checkpoint_saver is None:
-        checkpoint_saver = MemorySaver()
+        checkpoint_saver = InMemorySaver()
 
     # 编译图
     graph = graph_builder.compile(checkpointer=checkpoint_saver)

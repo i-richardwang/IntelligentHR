@@ -6,7 +6,7 @@
 import os
 import logging
 from typing import Dict, List
-from sqlalchemy import create_engine, MetaData, inspect, Engine
+from sqlalchemy import create_engine, inspect, Engine
 
 from backend.sql_assistant.states.assistant_state import SQLAssistantState
 
@@ -23,7 +23,6 @@ class DatabaseSchemaParser:
     def __init__(self):
         """初始化数据库连接"""
         self.engine = self._create_engine()
-        self.metadata = MetaData()
         self.inspector = inspect(self.engine)
 
     def _create_engine(self) -> Engine:

@@ -57,8 +57,8 @@ def init_language_model(
 
     model_params = {
         "model": model_name,
-        "openai_api_key": openai_api_key,
-        "openai_api_base": openai_api_base,
+        "api_key": openai_api_key,
+        "base_url": openai_api_base,
         "temperature": temperature,
         **kwargs,
     }

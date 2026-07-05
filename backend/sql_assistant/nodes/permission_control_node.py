@@ -5,7 +5,7 @@
 
 import logging
 from typing import Dict, List, Optional, Tuple, NamedTuple
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, bindparam
 import os
 import sqlparse
 from sqlparse.sql import Token, TokenList, Identifier
@@ -173,6 +173,8 @@ class PermissionValidator:
         if not table_names:
             return {}
 
+        # IN 子句需用 expanding 绑定参数，SQLAlchemy 才会把序列展开为多个占位符；
+        # 否则 text() 会把整个 list/tuple 当作单个参数绑定，driver 直接报错。
         query = text(
             """
             SELECT table_name, need_dept_control, dept_path_field
@@ -180,11 +182,11 @@ class PermissionValidator:
             WHERE table_name IN :table_names
             AND status = 1
         """
-        )
+        ).bindparams(bindparam("table_names", expanding=True))
 
         configs = {}
         with self.engine.connect() as conn:
-            result = conn.execute(query, {"table_names": tuple(table_names)})
+            result = conn.execute(query, {"table_names": list(table_names)})
             for row in result:
                 configs[row[0]] = TablePermissionConfig(
                     table_name=row[0],

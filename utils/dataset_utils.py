@@ -57,9 +57,9 @@ def merge_dataframes(
     if dedup_cols:
         if not set(dedup_cols).issubset(merged_df.columns):
             raise ValueError("dedup_cols中的列必须存在于DataFrame中")
-        merged_df.drop_duplicates(subset=dedup_cols, inplace=True)
+        merged_df = merged_df.drop_duplicates(subset=dedup_cols)
     else:
-        merged_df.drop_duplicates(inplace=True)
+        merged_df = merged_df.drop_duplicates()
 
     total_rows_after = len(merged_df)
     removed_duplicates = total_rows_before - total_rows_after

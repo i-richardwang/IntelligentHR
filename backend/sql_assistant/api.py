@@ -6,12 +6,11 @@ SQL助手的API入口模块。
 import os
 import asyncio
 from typing import Optional, Dict, Any, NamedTuple
-import httpx
 from fastapi import FastAPI, HTTPException, Body, BackgroundTasks
 from pydantic import BaseModel
 from functools import partial
 
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 from backend.sql_assistant.async_executor import run_sql_assistant_async
 from backend.sql_assistant.utils.user_mapper import UserMapper
 from langchain_core.globals import set_llm_cache
@@ -41,7 +40,7 @@ class ChatResponse(BaseModel):
 
 
 # 全局变量
-checkpoint_saver = MemorySaver()
+checkpoint_saver = InMemorySaver()
 user_mapper = UserMapper()
 
 
