@@ -6,7 +6,7 @@ demo 数据一键初始化脚本（开箱即跑）。
 统一适配到 IntelligentHR 的纯本地零 server 栈：业务库落本地 SQLite、向量集合落本地 libSQL，
 各库/集合的解析口径与对应消费方节点**逐字一致**，保证「写入的位置」正好是「功能读取的位置」。
 
-覆盖三个域（可用 ``--domain`` 选择，默认全部）：
+覆盖四个域（可用 ``--domain`` 选择，默认全部）：
 
 1. ``sql``      —— SQL 助手
    - 业务库：3 张招聘表 → ``sqlite:///{SQLBOT_DB_PATH}``（默认 data/sqlbot.db）
@@ -17,17 +17,22 @@ demo 数据一键初始化脚本（开箱即跑）。
 3. ``table-op`` —— 智能表格操作
    - 向量库 ``VECTOR_DB_DATABASE``（默认 examples）：tools_description（由 IHR 自身工具函数
      导出）/ data_operation_examples（少样本示例）
+4. ``resume``   —— 简历推荐（TalentMatch）
+   - 结构化库 ``full_resume`` → ``sqlite:///{RESUME_DB_PATH}``（默认 data/app.db）
+   - 向量库 ``VECTOR_DB_DATABASE_RESUME``（默认 resume）：personal_infos / educations /
+     work_experiences / project_experiences / skills / raw_resume_texts
 
 数据来源均已迁移进本仓库，运行时不依赖任何兄弟仓库：
 - SQL 业务/元数据：``tools/demo_data/generate_recruitment_data.py``（代码生成，确定性）
 - 实体标准化：``tools/demo_data/entity_standardization.py``
 - 表格操作示例：``tools/demo_data/data_operation_examples.csv``
 - 工具描述：从 ``backend/.../table_operation/table_operations.py`` 的 @tool 函数实时导出
+- 虚构简历：``tools/demo_data/generate_resume_data.py``（代码生成，确定性，纯虚构无真实个人数据）
 
 运行：
-    python -m tools.seed_demo_data [--domain all|sql|cleaning|table-op] [--overwrite]
+    python -m tools.seed_demo_data [--domain all|sql|cleaning|table-op|resume] [--overwrite]
                                    [--activities N] [--interviewers N] [--candidates N]
-                                   [--skip-business] [--skip-vectors]
+                                   [--resumes N] [--skip-business] [--skip-vectors]
 
 说明：
 - 业务表为确定性 demo（固定随机种子），每次以 ``replace`` 重建，天然幂等；
@@ -51,11 +56,22 @@ if PROJECT_ROOT not in sys.path:
 from utils.env_loader import load_env
 from tools.demo_data.generate_recruitment_data import RecruitmentDataGenerator
 from tools.demo_data.entity_standardization import company_rows, school_rows
+from tools.demo_data.generate_resume_data import ResumeDataGenerator
 
 logger = logging.getLogger("seed_demo_data")
 
 DEMO_DATA_DIR = os.path.join(os.path.dirname(__file__), "demo_data")
-DOMAIN_ORDER = ["sql", "cleaning", "table-op"]
+DOMAIN_ORDER = ["sql", "cleaning", "table-op", "resume"]
+
+# 简历向量集合：与 resume_vector_storage.store_resume_in_milvus 的拆分口径一致。
+RESUME_VECTOR_COLLECTIONS = [
+    "personal_infos",
+    "educations",
+    "work_experiences",
+    "project_experiences",
+    "skills",
+    "raw_resume_texts",
+]
 
 
 def _load_collections_config() -> Dict:
@@ -227,6 +243,88 @@ def seed_table_op(args) -> None:
     )
 
 
+def _resume_vector_rows(resumes: List[Dict]) -> Dict[str, List[Dict]]:
+    """把嵌套 ``resume_data`` 拍平为 6 个简历向量集合的行。
+
+    复刻 ``resume_vector_storage.prepare_data_for_milvus`` 的拆分语义：注入
+    ``resume_id``、把列表型字段（responsibilities / details）以空格拼成字符串再入库、
+    把 ``personal_info.skills`` 展开为 skills 集合每技能一行。列表拼接**不做** Milvus
+    时代的转义（libSQL 走参数化绑定，转义只会污染文本），仅用空格连接。
+    """
+    rows: Dict[str, List[Dict]] = {c: [] for c in RESUME_VECTOR_COLLECTIONS}
+    for r in resumes:
+        rid = r["id"]
+        pi = r["personal_info"]
+        rows["personal_infos"].append({
+            "resume_id": rid,
+            "name": pi["name"],
+            "email": pi.get("email", ""),
+            "phone": pi.get("phone", ""),
+            "address": pi.get("address", ""),
+            "summary": pi.get("summary", ""),
+        })
+        for e in r["education"]:
+            rows["educations"].append({
+                "resume_id": rid,
+                "institution": e["institution"],
+                "degree": e["degree"],
+                "major": e["major"],
+                "graduation_year": str(e["graduation_year"]),
+            })
+        for w in r["work_experiences"]:
+            rows["work_experiences"].append({
+                "resume_id": rid,
+                "company": w["company"],
+                "position": w["position"],
+                "experience_type": w["experience_type"],
+                "start_date": w["start_date"],
+                "end_date": w["end_date"],
+                "responsibilities": " ".join(w["responsibilities"]),
+            })
+        for p in r.get("project_experiences") or []:
+            rows["project_experiences"].append({
+                "resume_id": rid,
+                "name": p["name"],
+                "role": p["role"],
+                "start_date": p["start_date"],
+                "end_date": p["end_date"],
+                "details": " ".join(p["details"]),
+            })
+        for skill in pi.get("skills") or []:
+            rows["skills"].append({"resume_id": rid, "skill": skill})
+        rows["raw_resume_texts"].append({
+            "resume_id": rid,
+            "raw_text": r["raw_text"],
+            "file_name": r.get("file_or_url", rid),
+            "upload_date": r.get("upload_date", ""),
+        })
+    return rows
+
+
+def seed_resume(gen: ResumeDataGenerator, args) -> None:
+    """简历推荐（TalentMatch）：结构化库 full_resume + 6 个简历向量集合。"""
+    resumes = gen.resumes(count=args.resumes)
+
+    if not args.skip_business:
+        # 结构化库：推荐输出经 get_full_resume 读 characteristics/experience_summary/
+        # skills_overview 及完整 JSON 展示；复用 app 自身的幂等 upsert，口径零漂移。
+        logger.info("-- 简历结构化库（SQLite full_resume） --")
+        from backend.resume_management.storage.resume_sql_storage import store_full_resume
+
+        for r in resumes:
+            store_full_resume(r)
+        logger.info("  ✓ full_resume            写入 %d 份", len(resumes))
+
+    if not args.skip_vectors:
+        logger.info("-- 简历向量集合 --")
+        # 与 resume_vector_storage / resume_scorer 一致：getenv("VECTOR_DB_DATABASE_RESUME", "resume")
+        _seed_vector_collections(
+            os.getenv("VECTOR_DB_DATABASE_RESUME", "resume"),
+            _resume_vector_rows(resumes),
+            args.overwrite,
+        )
+
+
 # ---------------------------------------------------------------------- #
 # 入口
 # ---------------------------------------------------------------------- #
@@ -238,7 +336,9 @@ def main() -> int:
     parser.add_argument("--activities", type=int, default=50, help="招聘活动数量（默认 50）")
     parser.add_argument("--interviewers", type=int, default=100, help="面试官数量（默认 100）")
     parser.add_argument("--candidates", type=int, default=500, help="候选人数量（默认 500）")
-    parser.add_argument("--skip-business", action="store_true", help="跳过业务库初始化（仅 sql 域）")
+    parser.add_argument("--resumes", type=int, default=30, help="虚构简历数量（默认 30，仅 resume 域）")
+    parser.add_argument("--skip-business", action="store_true",
+                        help="跳过关系型库初始化（sql 业务表 / resume full_resume 库）")
     parser.add_argument("--skip-vectors", action="store_true", help="跳过所有向量库初始化")
     args = parser.parse_args()
 
@@ -246,18 +346,21 @@ def main() -> int:
     load_env()
 
     selected = DOMAIN_ORDER if args.domain == "all" else [args.domain]
-    gen = RecruitmentDataGenerator() if "sql" in selected else None
+    recruitment_gen = RecruitmentDataGenerator() if "sql" in selected else None
+    resume_gen = ResumeDataGenerator() if "resume" in selected else None
 
     failures = 0
     for domain in selected:
         logger.info("=== 初始化域：%s ===", domain)
         try:
             if domain == "sql":
-                seed_sql(gen, args)
+                seed_sql(recruitment_gen, args)
             elif domain == "cleaning":
                 seed_cleaning(args)
             elif domain == "table-op":
                 seed_table_op(args)
+            elif domain == "resume":
+                seed_resume(resume_gen, args)
         except Exception as e:  # noqa: BLE001 - 单域失败需明确提示且不影响其他域
             failures += 1
             logger.error(

@@ -55,19 +55,20 @@ SQLite、简历文件落本地文件系统。**无需 Milvus / MySQL / MinIO 等
 python -m tools.seed_demo_data          # 初始化全部三个域
 ```
 
-覆盖三个域(可用 `--domain sql|cleaning|table-op` 单独初始化,默认 `all`):
+覆盖四个域(可用 `--domain sql|cleaning|table-op|resume` 单独初始化,默认 `all`):
 
 | 域 | 初始化内容 |
 |----|-----------|
 | `sql` | SQL 助手业务样例库(`SQLBOT_DB_PATH`,默认 `data/sqlbot.db`)+ 向量集合 `table_descriptions`(选表)/ `term_descriptions`(术语映射)/ `query_examples`(少样本) |
 | `cleaning` | 数据清洗实体标准化集合 `company_data` / `school_data`(公司/学校名称) |
 | `table-op` | 智能表格操作集合 `tools_description`(由项目自身工具函数导出)/ `data_operation_examples`(少样本) |
+| `resume` | 简历推荐(TalentMatch)结构化库 `full_resume`(`RESUME_DB_PATH`,默认 `data/app.db`)+ 6 个向量集合 `personal_infos` / `educations` / `work_experiences` / `project_experiences` / `skills` / `raw_resume_texts`。数据为**纯虚构简历**(确定性生成,无真实个人信息) |
 
-- 业务库步骤不依赖任何 LLM / 网络;向量库步骤会调用已配置的 embedding provider 生成向量,
-  故运行前需在 `.env` 中配好 Embedding 相关变量。
+- 关系型库步骤(SQL 业务表 / 简历 `full_resume`)不依赖任何 LLM / 网络;向量库步骤会调用
+  已配置的 embedding provider 生成向量,故运行前需在 `.env` 中配好 Embedding 相关变量。
 - 向量集合默认「已存在且非空则跳过」,`--overwrite` 可原地重建;`--skip-business` /
   `--skip-vectors` 可只跑其中一步。招聘业务数据量可通过 `--activities` / `--interviewers` /
-  `--candidates` 调整。
+  `--candidates` 调整,虚构简历数量可通过 `--resumes` 调整。
 
 ## 贡献
 
