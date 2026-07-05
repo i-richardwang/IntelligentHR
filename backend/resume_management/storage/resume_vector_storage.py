@@ -98,6 +98,10 @@ def process_field(value: Any, field_name: str) -> str:
     """
     if isinstance(value, list):
         value = " ".join(map(str, value))
+    elif value is None or (pd.api.types.is_scalar(value) and pd.isna(value)):
+        # None / NaN 视为空串，避免被 str() 成字面量 "None"（会污染存储值与 embedding，
+        # 且多份缺失同字段的简历以 "None" 相互碰撞）。
+        return ""
     if isinstance(value, str):
         value = value.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
     return str(value)

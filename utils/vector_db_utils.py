@@ -339,9 +339,14 @@ def update_milvus_records(
 
     with _lock:
         for i, record in enumerate(data):
-            # 用 embedding_fields 定位既有记录（参数化，杜绝注入）
-            where = " AND ".join(f"{_ident(f)} = ?" for f in embedding_fields)
-            where_params = tuple(record[f] for f in embedding_fields)
+            # 定位既有记录（参数化，杜绝注入）。匹配键 = embedding_fields，且当记录带
+            # resume_id 且集合有该列时一并纳入——否则「仅按 embedding 值删除」会误删其他
+            # resume 的同值记录（如两份简历同含技能 Python，造成跨简历数据丢失）。
+            match_fields = list(embedding_fields)
+            if "resume_id" in scalar_fields and "resume_id" in record:
+                match_fields.append("resume_id")
+            where = " AND ".join(f"{_ident(f)} = ?" for f in match_fields)
+            where_params = tuple(record[f] for f in match_fields)
             existing = conn.execute(
                 f"SELECT id FROM {name} WHERE {where}", where_params
             ).fetchall()

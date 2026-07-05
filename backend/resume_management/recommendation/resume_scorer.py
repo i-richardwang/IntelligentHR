@@ -191,7 +191,12 @@ class ResumeScorer:
                         "query_content": query.query_content,
                     }
                 )
-                field_relevance_scores[query.field_name] = query.relevance_score
+                # 同一向量字段可能对应多条 query（如 skills 最多 3 条，且策略要求所有
+                # query 的 relevance 之和为 1）；相似度按 field_name 汇合打分，权重也须
+                # 按 field_name 累加，否则只保留最后一条会把该字段权重少算数倍、压低排序。
+                field_relevance_scores[query.field_name] = (
+                    field_relevance_scores.get(query.field_name, 0) + query.relevance_score
+                )
 
             collection_scores = await self.calculate_resume_scores_for_collection(
                 collection_name=collection_name,

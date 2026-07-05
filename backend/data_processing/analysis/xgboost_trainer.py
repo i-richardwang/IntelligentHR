@@ -208,6 +208,11 @@ class XGBoostModel(BaseModel):
 
         self.model = best_pipeline
 
+        # 分类时把标签映射随 pipeline 一起持久化（挂为属性，joblib.dump 会一并保存），
+        # 供预测端把 XGBoost 输出的编码值解码回真实类别；RF/DT 直接用原始标签训练，无此属性。
+        if self.problem_type == "classification":
+            self.model.label_classes_ = np.asarray(self.label_encoder.classes_)
+
         results = {
             "model": self.model,
             "feature_importance": self.get_feature_importance(),

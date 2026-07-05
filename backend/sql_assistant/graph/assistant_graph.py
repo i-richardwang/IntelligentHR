@@ -190,9 +190,16 @@ def run_sql_assistant(
         config = create_langfuse_config(thread_id, existing_config=config)
 
     # 构造输入状态
+    # 每轮查询显式重置逐查询的瞬态字段，避免它们经 checkpointer 跨轮累积：
+    # - retry_count 若不清零，同一会话第 3 次查询即被「达到最大重试次数」拦截、不再执行；
+    # - error_analysis_result/execution_result 残留会污染本轮的 SQL 选择与返回结果。
+    # messages 用 add_messages reducer，保持追加（对话历史）不变。
     state_input = {
         "messages": [HumanMessage(content=query)],
         "user_id": user_id,  # 在初始状态中加入用户ID
+        "retry_count": 0,
+        "error_analysis_result": None,
+        "execution_result": None,
     }
 
     # 执行图

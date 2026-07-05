@@ -76,7 +76,13 @@ class ModelPredictor:
             raise ValueError("模型未加载，请先调用 load_model 方法。")
 
         preprocessed_data = self.preprocess_data(data)
-        return self.model.predict(preprocessed_data)
+        predictions = self.model.predict(preprocessed_data)
+        # 若模型自带标签映射（XGBoost 分类经 LabelEncoder 编码训练），把编码值解码回原始类别；
+        # 其他模型无 label_classes_ 属性，原样返回。
+        label_classes = getattr(self.model, "label_classes_", None)
+        if label_classes is not None:
+            predictions = np.asarray(label_classes)[predictions.astype(int)]
+        return predictions
 
     def predict_proba(self, data: pd.DataFrame) -> np.ndarray:
         if self.model is None:
